@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { getAllPosts } from "@/lib/api";
-import { NotesSidebar } from "./_components/notes-sidebar";
-import { ThemeSwitcher } from "./_components/theme-switcher";
+import { NotesApp } from "./_components/notes-app";
 
 import "./globals.css";
 
@@ -20,10 +19,11 @@ export default function RootLayout({
     title: post.title,
     date: post.date,
     excerpt: post.excerpt,
+    folder: post.folder ?? "Notes",
   }));
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en">
       <head>
         <link
           rel="apple-touch-icon"
@@ -45,26 +45,10 @@ export default function RootLayout({
         <link rel="shortcut icon" href="/favicon/favicon.ico" />
         <meta name="theme-color" content="#1e1e1e" />
       </head>
-      <body className="h-dvh overflow-hidden font-sans antialiased bg-white text-neutral-900 dark:bg-[#1e1e1e] dark:text-neutral-100">
-        <div className="flex h-full flex-col">
-          <header className="flex h-12 shrink-0 items-center gap-2 border-b border-black/10 bg-[#f3f2f1] px-4 dark:border-white/10 dark:bg-[#2c2c2c]">
-            <span className="flex gap-2" aria-hidden="true">
-              <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
-              <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
-              <span className="h-3 w-3 rounded-full bg-[#28c840]" />
-            </span>
-            <span className="ml-3 text-sm font-semibold text-neutral-500 dark:text-neutral-400">
-              Notes
-            </span>
-            <span className="ml-auto">
-              <ThemeSwitcher />
-            </span>
-          </header>
-          <div className="flex min-h-0 flex-1">
-            <NotesSidebar notes={notes} />
-            <main className="min-w-0 flex-1 overflow-y-auto bg-white dark:bg-[#1e1e1e]">
-              {children}
-            </main>
+      <body className="h-dvh overflow-hidden bg-gradient-to-br from-indigo-300 via-purple-300 to-rose-200 font-sans antialiased text-neutral-900 dark:from-[#352a5e] dark:via-[#241d3a] dark:to-[#161221] dark:text-neutral-100">
+        <div className="h-full p-2 sm:p-3 lg:p-5">
+          <div className="h-full overflow-hidden rounded-2xl bg-[#f4f4f3]/80 shadow-2xl ring-1 ring-black/10 backdrop-blur-2xl dark:bg-[#181818]/80 dark:ring-white/10 sm:rounded-[1.4rem]">
+            <NotesApp notes={notes}>{children}</NotesApp>
           </div>
         </div>
       </body>
