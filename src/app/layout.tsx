@@ -1,20 +1,13 @@
-import Footer from "@/app/_components/footer";
-import { CMS_NAME, HOME_OG_IMAGE_URL } from "@/lib/constants";
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import cn from "classnames";
+import { getAllPosts } from "@/lib/api";
+import { NotesSidebar } from "./_components/notes-sidebar";
 import { ThemeSwitcher } from "./_components/theme-switcher";
 
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
-
 export const metadata: Metadata = {
-  title: `Next.js Blog Example with ${CMS_NAME}`,
-  description: `A statically generated blog example using Next.js and ${CMS_NAME}.`,
-  openGraph: {
-    images: [HOME_OG_IMAGE_URL],
-  },
+  title: "Notes",
+  description: "My personal notes.",
 };
 
 export default function RootLayout({
@@ -22,6 +15,13 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const notes = getAllPosts().map((post) => ({
+    slug: post.slug,
+    title: post.title,
+    date: post.date,
+    excerpt: post.excerpt,
+  }));
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -42,27 +42,31 @@ export default function RootLayout({
           sizes="16x16"
           href="/favicon/favicon-16x16.png"
         />
-        <link rel="manifest" href="/favicon/site.webmanifest" />
-        <link
-          rel="mask-icon"
-          href="/favicon/safari-pinned-tab.svg"
-          color="#000000"
-        />
         <link rel="shortcut icon" href="/favicon/favicon.ico" />
-        <meta name="msapplication-TileColor" content="#000000" />
-        <meta
-          name="msapplication-config"
-          content="/favicon/browserconfig.xml"
-        />
-        <meta name="theme-color" content="#000" />
-        <link rel="alternate" type="application/rss+xml" href="/feed.xml" />
+        <meta name="theme-color" content="#1e1e1e" />
       </head>
-      <body
-        className={cn(inter.className, "dark:bg-slate-900 dark:text-slate-400")}
-      >
-        <ThemeSwitcher />
-        <div className="min-h-screen">{children}</div>
-        <Footer />
+      <body className="h-dvh overflow-hidden font-sans antialiased bg-white text-neutral-900 dark:bg-[#1e1e1e] dark:text-neutral-100">
+        <div className="flex h-full flex-col">
+          <header className="flex h-12 shrink-0 items-center gap-2 border-b border-black/10 bg-[#f3f2f1] px-4 dark:border-white/10 dark:bg-[#2c2c2c]">
+            <span className="flex gap-2" aria-hidden="true">
+              <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
+              <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
+              <span className="h-3 w-3 rounded-full bg-[#28c840]" />
+            </span>
+            <span className="ml-3 text-sm font-semibold text-neutral-500 dark:text-neutral-400">
+              Notes
+            </span>
+            <span className="ml-auto">
+              <ThemeSwitcher />
+            </span>
+          </header>
+          <div className="flex min-h-0 flex-1">
+            <NotesSidebar notes={notes} />
+            <main className="min-w-0 flex-1 overflow-y-auto bg-white dark:bg-[#1e1e1e]">
+              {children}
+            </main>
+          </div>
+        </div>
       </body>
     </html>
   );

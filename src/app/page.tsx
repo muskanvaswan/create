@@ -1,30 +1,23 @@
-import Container from "@/app/_components/container";
-import { HeroPost } from "@/app/_components/hero-post";
-import { Intro } from "@/app/_components/intro";
-import { MoreStories } from "@/app/_components/more-stories";
+import { Note } from "@/app/_components/note";
 import { getAllPosts } from "@/lib/api";
+import markdownToHtml from "@/lib/markdownToHtml";
 
-export default function Index() {
-  const allPosts = getAllPosts();
+export default async function Index() {
+  const latest = getAllPosts()[0];
 
-  const heroPost = allPosts[0];
+  if (!latest) {
+    return (
+      <div className="flex h-full items-center justify-center text-neutral-400">
+        No Notes
+      </div>
+    );
+  }
 
-  const morePosts = allPosts.slice(1);
+  const content = await markdownToHtml(latest.content || "");
 
   return (
-    <main>
-      <Container>
-        <Intro />
-        <HeroPost
-          title={heroPost.title}
-          coverImage={heroPost.coverImage}
-          date={heroPost.date}
-          author={heroPost.author}
-          slug={heroPost.slug}
-          excerpt={heroPost.excerpt}
-        />
-        {morePosts.length > 0 && <MoreStories posts={morePosts} />}
-      </Container>
-    </main>
+    <div className="hidden sm:block">
+      <Note title={latest.title} date={latest.date} contentHtml={content} />
+    </div>
   );
 }
