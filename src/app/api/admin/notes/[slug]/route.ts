@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPostBySlug } from "@/lib/api";
 import { isAuthenticatedRequest } from "@/lib/auth";
 import { deleteNote, noteExists, writeNote } from "@/lib/notes-store";
+import { deleteAudio, syncNoteAudio } from "@/lib/tts";
 
 type Params = {
   params: Promise<{ slug: string }>;
@@ -24,13 +25,14 @@ export async function PUT(req: NextRequest, props: Params) {
 
   // Keep the original creation date so the public list order stays stable.
   const existing = getPostBySlug(slug);
-  writeNote({
+  const note = {
     slug,
     title: title.trim(),
     folder: folder?.trim() || "Notes",
     content: content ?? "",
-    date: existing.date,
-  });
+  };
+  writeNote({ ...note, date: existing.date });
+  await syncNoteAudio(note);
 
   return NextResponse.json({ slug });
 }
@@ -46,5 +48,6 @@ export async function DELETE(req: NextRequest, props: Params) {
   }
 
   deleteNote(slug);
+  deleteAudio(slug);
   return NextResponse.json({ ok: true });
 }

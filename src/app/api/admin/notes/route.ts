@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthenticatedRequest } from "@/lib/auth";
 import { slugify, writeNote } from "@/lib/notes-store";
+import { syncNoteAudio } from "@/lib/tts";
 
 export async function POST(req: NextRequest) {
   if (!isAuthenticatedRequest(req)) {
@@ -13,13 +14,14 @@ export async function POST(req: NextRequest) {
   }
 
   const slug = slugify(title);
-  writeNote({
+  const note = {
     slug,
     title: title.trim(),
     folder: folder?.trim() || "Notes",
     content: content ?? "",
-    date: new Date().toISOString(),
-  });
+  };
+  writeNote({ ...note, date: new Date().toISOString() });
+  await syncNoteAudio(note);
 
   return NextResponse.json({ slug });
 }
