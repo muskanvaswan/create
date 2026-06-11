@@ -193,7 +193,7 @@ export function NotesApp({ notes, children }: Props) {
     <div className="relative flex h-full">
       {/* Folders pane */}
       {!sidebarHidden && (
-        <div className="hidden w-56 shrink-0 flex-col bg-white/60 dark:bg-white/[0.06] lg:flex">
+        <div className="hidden w-56 shrink-0 flex-col bg-white/25 dark:bg-white/[0.03] lg:flex">
           <aside className="flex-grow flex flex-col my-2 ml-2 mr-0 rounded-2xl border border-black/[0.18] dark:border-white/[0.15] bg-gradient-to-b from-white/20 to-transparent backdrop-blur-md dark:from-white/[0.06] dark:to-transparent shadow-lg">
             <div className="flex h-14 shrink-0 items-center justify-between px-4">
               <TrafficLights />
@@ -230,7 +230,7 @@ export function NotesApp({ notes, children }: Props) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Toolbar (desktop/tablet only) */}
-        <header className="hidden h-14 shrink-0 items-center border-b border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/[0.06] sm:flex">
+        <header className="hidden h-14 shrink-0 items-center border-b border-black/10 dark:border-white/10 bg-white/75 dark:bg-[#211d29]/90 sm:flex">
           {/* Notes list header part */}
           <div className="flex h-full w-72 shrink-0 items-center border-r border-black/10 px-4 dark:border-white/10 lg:w-80">
             <div className="flex flex-1 items-center justify-between min-w-0">
@@ -339,7 +339,7 @@ export function NotesApp({ notes, children }: Props) {
           {/* Notes list */}
           <aside
             className={cn(
-              "w-full shrink-0 flex-col overflow-y-auto border-r border-black/10 bg-white/60 px-3 pb-4 dark:border-white/10 dark:bg-white/[0.06] sm:flex sm:w-72 lg:w-80",
+              "w-full shrink-0 flex-col overflow-y-auto border-r border-black/10 bg-white/75 px-3 pb-4 dark:border-white/10 dark:bg-[#211d29]/90 sm:flex sm:w-72 lg:w-80",
               "max-sm:border-r-0 max-sm:bg-transparent max-sm:px-4 max-sm:pb-28 dark:max-sm:bg-transparent",
               isNoteOpen || mobileScreen === "folders" ? "hidden sm:flex" : "flex",
             )}
@@ -394,7 +394,7 @@ export function NotesApp({ notes, children }: Props) {
 
           <main
             className={cn(
-              "min-w-0 flex-1 overflow-y-auto bg-white/90 dark:bg-[#1e1e1e]/90 max-sm:bg-white dark:max-sm:bg-black",
+              "min-w-0 flex-1 overflow-y-auto bg-white/95 dark:bg-[#1f1e23]/95 max-sm:bg-white dark:max-sm:bg-black",
               !isNoteOpen && "hidden sm:block",
             )}
           >
