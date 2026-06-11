@@ -19,6 +19,23 @@ function Svg({ className, children }: IconProps & { children: React.ReactNode })
   );
 }
 
+export function PlayIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M7 4.5l12 7.5-12 7.5z" />
+    </Svg>
+  );
+}
+
+export function PauseIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M8 5v14" />
+      <path d="M16 5v14" />
+    </Svg>
+  );
+}
+
 export function ComposeIcon(props: IconProps) {
   return (
     <Svg {...props}>

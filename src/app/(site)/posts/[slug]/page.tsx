@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPublicPosts, getPostBySlug, isHiddenPost } from "@/lib/api";
 import { noteExists } from "@/lib/notes-store";
+import { audioExists } from "@/lib/tts";
 import markdownToHtml from "@/lib/markdownToHtml";
 import { Note } from "@/app/_components/note";
 import { Post as PostType } from "@/interfaces/post";
@@ -33,7 +34,12 @@ export default async function Post(props: Params) {
           ‹ Notes
         </Link>
       </nav>
-      <Note title={post.title} date={post.date} contentHtml={content} />
+      <Note
+        title={post.title}
+        date={post.date}
+        contentHtml={content}
+        audioSrc={audioExists(post.slug) ? `/api/audio/${post.slug}` : null}
+      />
     </>
   );
 }
