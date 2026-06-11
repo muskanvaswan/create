@@ -1,8 +1,7 @@
-import fs from "fs";
 import { NextResponse } from "next/server";
-import { getPostBySlug, isHiddenPost } from "@/lib/api";
-import { noteExists } from "@/lib/notes-store";
-import { audioExists, audioPath } from "@/lib/tts";
+import { HIDDEN_FOLDERS } from "@/lib/api";
+import { readNote } from "@/lib/notes-store";
+import { readAudio } from "@/lib/tts";
 
 type Params = {
   params: Promise<{ slug: string }>;
@@ -10,15 +9,17 @@ type Params = {
 
 export async function GET(_req: Request, props: Params) {
   const { slug } = await props.params;
-  if (!noteExists(slug) || !audioExists(slug)) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+  const note = await readNote(slug);
   // Audio for admin-only notes stays private even though the file exists.
-  if (isHiddenPost(getPostBySlug(slug))) {
+  if (!note || HIDDEN_FOLDERS.includes(note.folder)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const audio = fs.readFileSync(audioPath(slug));
+  const audio = await readAudio(slug);
+  if (!audio) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   return new NextResponse(new Uint8Array(audio), {
     headers: {
       "Content-Type": "audio/mpeg",

@@ -13,14 +13,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
   }
 
-  const slug = slugify(title);
+  const slug = await slugify(title);
   const note = {
     slug,
     title: title.trim(),
     folder: folder?.trim() || "Notes",
     content: content ?? "",
   };
-  writeNote({ ...note, date: new Date().toISOString() });
+  await writeNote({ ...note, date: new Date().toISOString() });
   await syncNoteAudio(note);
 
   return NextResponse.json({ slug });

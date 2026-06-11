@@ -1,5 +1,44 @@
 # A statically generated blog example using Next.js, Markdown, and TypeScript
 
+## Admin auth (passkey) environment variables
+
+The `/admin` editor is protected by a single-owner passkey. Locally everything
+is stored in the gitignored `_auth/` directory and no configuration is needed.
+On hosts with a read-only filesystem (e.g. Vercel) set these environment
+variables:
+
+- `AUTH_SECRET` (required) — random string used to sign session and challenge
+  cookies. Generate one with `openssl rand -hex 32`.
+- `SETUP_PASSWORD` (required in production) — one-time password that gates
+  passkey registration so only the owner can claim the editor. Without it,
+  registration is disabled in production.
+- `PASSKEY_CREDENTIAL` — JSON of the registered passkey. On read-only hosts
+  the registration flow displays this value after creating the passkey; paste
+  it into the host's environment variables and redeploy.
+
+Setup flow on Vercel: set `AUTH_SECRET` and `SETUP_PASSWORD`, deploy, visit
+`/admin`, enter the setup password and create the passkey, then copy the shown
+JSON into `PASSKEY_CREDENTIAL` and redeploy.
+
+## Content storage environment variables
+
+The admin editor persists notes, folders, uploads, and TTS audio. Locally it
+writes straight to the working tree (`_posts/`, `data/`, `public/`). On
+read-only hosts like Vercel, set these so every save becomes a commit to the
+GitHub repo instead (which also triggers a redeploy that republishes the
+static pages):
+
+- `GITHUB_REPO` — the repo that holds the content, e.g. `muskanvaswan/notes`.
+- `GITHUB_TOKEN` — a fine-grained personal access token for that repo with
+  the **Contents: Read and write** permission (github.com → Settings →
+  Developer settings → Fine-grained tokens).
+- `GITHUB_BRANCH` — branch to commit to, defaults to `main`.
+
+Each note save produces a commit for the markdown file and one for the
+regenerated audio, so the public site catches up as soon as the triggered
+deploy finishes (about a minute). The admin editor itself reads through the
+GitHub API, so it always sees the latest content immediately.
+
 This is the existing [blog-starter](https://github.com/vercel/next.js/tree/canary/examples/blog-starter) plus TypeScript.
 
 This example showcases Next.js's [Static Generation](https://nextjs.org/docs/app/building-your-application/routing/layouts-and-templates) feature using Markdown files as the data source.

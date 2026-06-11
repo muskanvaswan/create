@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import { getAllPosts } from "@/lib/api";
 import { hasRegisteredPasskey, isAuthenticated } from "@/lib/auth";
-import { loadFolders } from "@/lib/notes-store";
+import { listNotes, loadFolders } from "@/lib/notes-store";
 import { GlassWindow } from "@/app/_components/glass-window";
 import { AdminLogin } from "./login";
 import { Editor } from "./editor";
@@ -23,19 +22,13 @@ export default async function AdminPage() {
     );
   }
 
-  const notes = getAllPosts().map((post) => ({
-    slug: post.slug,
-    title: post.title,
-    date: post.date,
-    folder: post.folder ?? "Notes",
-    content: post.content,
-  }));
+  const notes = await listNotes();
 
   const folders = [
     ...new Set([
       "Notes",
       "Drafts",
-      ...loadFolders(),
+      ...(await loadFolders()),
       ...notes.map((note) => note.folder),
     ]),
   ].sort();

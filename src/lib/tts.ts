@@ -4,23 +4,34 @@ import { Communicate } from "edge-tts-universal";
 import { remark } from "remark";
 import strip from "strip-markdown";
 import { HIDDEN_FOLDERS } from "@/lib/api";
+import { deleteFile, readFile, writeFile } from "@/lib/content-store";
 
-const audioDirectory = join(process.cwd(), "data", "audio");
+const AUDIO_DIR = "data/audio";
 
 // Microsoft Edge "Read Aloud" neural voice; swap for any voice from
 // `Communicate`'s voice list if the tone doesn't fit.
 const VOICE = "en-US-AvaMultilingualNeural";
 
-export function audioPath(slug: string): string {
-  return join(audioDirectory, `${slug}.mp3`);
+function audioFile(slug: string): string {
+  return `${AUDIO_DIR}/${slug}.mp3`;
 }
 
+/**
+ * Build-time check used by the public pages to decide whether to show a
+ * listen button; audio files are committed to the repo, so they're on disk
+ * during the build.
+ */
 export function audioExists(slug: string): boolean {
-  return fs.existsSync(audioPath(slug));
+  return fs.existsSync(join(process.cwd(), audioFile(slug)));
 }
 
-export function deleteAudio(slug: string): void {
-  fs.rmSync(audioPath(slug), { force: true });
+/** Runtime read for the audio API route, served from the content store. */
+export function readAudio(slug: string): Promise<Buffer | null> {
+  return readFile(audioFile(slug));
+}
+
+export async function deleteAudio(slug: string): Promise<void> {
+  await deleteFile(audioFile(slug), `admin: delete audio "${slug}"`);
 }
 
 async function markdownToPlainText(markdown: string): Promise<string> {
@@ -48,8 +59,11 @@ export async function generateAudio({
     }
   }
 
-  fs.mkdirSync(audioDirectory, { recursive: true });
-  fs.writeFileSync(audioPath(slug), Buffer.concat(chunks));
+  await writeFile(
+    audioFile(slug),
+    Buffer.concat(chunks),
+    `admin: update audio "${slug}"`,
+  );
 }
 
 /**
@@ -66,7 +80,7 @@ export async function syncNoteAudio(note: {
 }): Promise<void> {
   try {
     if (HIDDEN_FOLDERS.includes(note.folder)) {
-      deleteAudio(note.slug);
+      await deleteAudio(note.slug);
     } else {
       await generateAudio(note);
     }

@@ -21,39 +21,69 @@ export type StoredCredential = {
 };
 
 function getSecret(): Buffer {
-  if (!fs.existsSync(secretPath)) {
-    fs.mkdirSync(authDir, { recursive: true });
-    fs.writeFileSync(secretPath, crypto.randomBytes(32).toString("hex"), {
-      mode: 0o600,
-    });
+  const fromEnv = process.env.AUTH_SECRET;
+  if (fromEnv) return Buffer.from(fromEnv);
+  try {
+    if (!fs.existsSync(secretPath)) {
+      fs.mkdirSync(authDir, { recursive: true });
+      fs.writeFileSync(secretPath, crypto.randomBytes(32).toString("hex"), {
+        mode: 0o600,
+      });
+    }
+    return Buffer.from(fs.readFileSync(secretPath, "utf8").trim(), "hex");
+  } catch {
+    throw new Error(
+      "No writable filesystem for the signing secret. Set the AUTH_SECRET environment variable.",
+    );
   }
-  return Buffer.from(fs.readFileSync(secretPath, "utf8").trim(), "hex");
 }
 
 function sign(value: string): string {
   return crypto.createHmac("sha256", getSecret()).update(value).digest("base64url");
 }
 
-function constantTimeEqual(a: string, b: string): boolean {
+export function constantTimeEqual(a: string, b: string): boolean {
   const bufA = Buffer.from(a);
   const bufB = Buffer.from(b);
   return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
 }
 
 export function hasRegisteredPasskey(): boolean {
-  return fs.existsSync(credentialPath);
+  return Boolean(process.env.PASSKEY_CREDENTIAL) || fs.existsSync(credentialPath);
 }
 
 export function loadCredential(): StoredCredential | null {
-  if (!hasRegisteredPasskey()) return null;
+  const fromEnv = process.env.PASSKEY_CREDENTIAL;
+  if (fromEnv) return JSON.parse(fromEnv) as StoredCredential;
+  if (!fs.existsSync(credentialPath)) return null;
   return JSON.parse(fs.readFileSync(credentialPath, "utf8")) as StoredCredential;
 }
 
-export function saveCredential(credential: StoredCredential): void {
-  fs.mkdirSync(authDir, { recursive: true });
-  fs.writeFileSync(credentialPath, JSON.stringify(credential, null, 2), {
-    mode: 0o600,
-  });
+/**
+ * Persists the credential to disk when possible. Returns false on read-only
+ * hosts (e.g. Vercel), where the credential must be stored in the
+ * PASSKEY_CREDENTIAL environment variable instead.
+ */
+export function trySaveCredential(credential: StoredCredential): boolean {
+  try {
+    fs.mkdirSync(authDir, { recursive: true });
+    fs.writeFileSync(credentialPath, JSON.stringify(credential, null, 2), {
+      mode: 0o600,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Registration gate. With SETUP_PASSWORD set, the provided password must
+ * match. Without it, registration is only open in local development.
+ */
+export function isSetupAllowed(password: string | undefined): boolean {
+  const expected = process.env.SETUP_PASSWORD;
+  if (expected) return Boolean(password) && constantTimeEqual(password!, expected);
+  return process.env.NODE_ENV !== "production";
 }
 
 /** "expiry.signature" value for the session cookie. */

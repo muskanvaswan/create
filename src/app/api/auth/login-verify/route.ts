@@ -9,7 +9,7 @@ import {
   expectedRpID,
   loadCredential,
   readChallengeValue,
-  saveCredential,
+  trySaveCredential,
 } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
@@ -43,7 +43,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ verified: false }, { status: 401 });
   }
 
-  saveCredential({
+  // Best-effort counter update; not possible on read-only hosts where the
+  // credential lives in PASSKEY_CREDENTIAL.
+  trySaveCredential({
     ...credential,
     counter: verification.authenticationInfo.newCounter,
   });

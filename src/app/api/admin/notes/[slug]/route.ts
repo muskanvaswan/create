@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPostBySlug } from "@/lib/api";
 import { isAuthenticatedRequest } from "@/lib/auth";
-import { deleteNote, noteExists, writeNote } from "@/lib/notes-store";
+import { deleteNote, readNote, writeNote } from "@/lib/notes-store";
 import { deleteAudio, syncNoteAudio } from "@/lib/tts";
 
 type Params = {
@@ -14,7 +13,8 @@ export async function PUT(req: NextRequest, props: Params) {
   }
 
   const { slug } = await props.params;
-  if (!noteExists(slug)) {
+  const existing = await readNote(slug);
+  if (!existing) {
     return NextResponse.json({ error: "Note not found" }, { status: 404 });
   }
 
@@ -23,15 +23,14 @@ export async function PUT(req: NextRequest, props: Params) {
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
   }
 
-  // Keep the original creation date so the public list order stays stable.
-  const existing = getPostBySlug(slug);
   const note = {
     slug,
     title: title.trim(),
     folder: folder?.trim() || "Notes",
     content: content ?? "",
   };
-  writeNote({ ...note, date: existing.date });
+  // Keep the original creation date so the public list order stays stable.
+  await writeNote({ ...note, date: existing.date });
   await syncNoteAudio(note);
 
   return NextResponse.json({ slug });
@@ -43,11 +42,11 @@ export async function DELETE(req: NextRequest, props: Params) {
   }
 
   const { slug } = await props.params;
-  if (!noteExists(slug)) {
+  if (!(await readNote(slug))) {
     return NextResponse.json({ error: "Note not found" }, { status: 404 });
   }
 
-  deleteNote(slug);
-  deleteAudio(slug);
+  await deleteNote(slug);
+  await deleteAudio(slug);
   return NextResponse.json({ ok: true });
 }
