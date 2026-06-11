@@ -194,7 +194,7 @@ export function NotesApp({ notes, children }: Props) {
       {/* Folders pane */}
       {!sidebarHidden && (
         <div className="hidden w-56 shrink-0 flex-col bg-white/75 dark:bg-[#211d29]/90 lg:flex">
-          <aside className="flex-grow flex flex-col my-2 ml-2 mr-0 rounded-2xl border border-black/[0.12] dark:border-white/[0.12] bg-gradient-to-bl from-white/50 via-transparent to-transparent dark:from-white/[0.09] dark:via-transparent dark:to-transparent backdrop-blur-md shadow-lg">
+          <aside className="flex-grow flex flex-col my-2 ml-2 mr-0 rounded-2xl border border-black/[0.12] dark:border-white/[0.12] bg-gradient-to-b from-white/12 to-transparent dark:from-white/[0.03] dark:to-transparent backdrop-blur-md shadow-lg">
             <div className="flex h-14 shrink-0 items-center justify-between px-4">
               <TrafficLights />
               {sidebarToggle}
@@ -257,12 +257,12 @@ export function NotesApp({ notes, children }: Props) {
           </div>
 
           {/* Editor header part */}
-          <div className="grid h-full flex-grow grid-cols-[1fr_auto_1fr] items-center px-4">
-            {/* Left section: empty/placeholder (matches compose button alignment) */}
-            <div className="flex justify-start" />
+          <div className="flex h-full flex-grow items-center gap-3 px-4 min-w-0">
+            {/* Left section spacer */}
+            <div className="flex-1 min-w-0" />
 
             {/* Middle section: Formatting icons */}
-            <div className="flex justify-center">
+            <div className="shrink-0 flex justify-center">
               <Pill className="hidden md:flex">
                 <DisabledIcon>
                   <span className="text-[15px] font-medium leading-none">Aa</span>
@@ -279,8 +279,11 @@ export function NotesApp({ notes, children }: Props) {
               </Pill>
             </div>
 
+            {/* Right section spacer */}
+            <div className="flex-1 min-w-0" />
+
             {/* Right section: Share, Search Bar */}
-            <div className="flex items-center justify-end gap-2">
+            <div className="shrink-0 flex items-center justify-end gap-2">
               <Pill>
                 {activeNote && activeNote.hasAudio && (
                   <>

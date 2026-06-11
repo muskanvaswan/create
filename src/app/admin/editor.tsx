@@ -560,12 +560,12 @@ export function Editor({ initialNotes, initialFolders }: Props) {
           {/* Editor header part */}
           <div
             className={cn(
-              "h-full flex-grow grid grid-cols-[1fr_auto_1fr] items-center px-3 sm:px-4",
-              isOpen ? "grid" : "hidden sm:grid"
+              "flex h-full flex-grow items-center gap-3 px-3 sm:px-4 min-w-0",
+              isOpen ? "flex" : "hidden sm:flex"
             )}
           >
             {/* Left section: New Note button */}
-            <div className="flex justify-start">
+            <div className="shrink-0 flex justify-start">
               <Pill className="hidden sm:flex">
                 <ToolbarButton label="New note" onClick={openNew}>
                   <ComposeIcon />
@@ -573,8 +573,11 @@ export function Editor({ initialNotes, initialFolders }: Props) {
               </Pill>
             </div>
 
+            {/* Left-middle spacer */}
+            <div className="flex-1 min-w-0" />
+
             {/* Middle section: Formatting tools */}
-            <div className="flex justify-center">
+            <div className="shrink-0 flex justify-center">
               <span className="relative hidden md:block">
                 <Pill>
                   <ToolbarButton
@@ -626,8 +629,11 @@ export function Editor({ initialNotes, initialFolders }: Props) {
               </span>
             </div>
 
+            {/* Middle-right spacer */}
+            <div className="flex-1 min-w-0" />
+
             {/* Right section: Share, Save, Search Bar */}
-            <div className="flex items-center justify-end gap-2">
+            <div className="shrink-0 flex items-center justify-end gap-2">
               <Pill className="hidden md:flex">
                 <ToolbarButton label="Share" onClick={share} disabled={!openNote}>
                   <ShareIcon />

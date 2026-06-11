@@ -26,4 +26,95 @@
     background-size: cover;
     background-position: center;
   }
+
+  /* Desktop header grab cursor */
+  @media (min-width: 640px) {
+    header {
+      cursor: grab;
+    }
+    header:active {
+      cursor: grabbing;
+    }
+    /* Allow cursor override for buttons and inputs in header */
+    header button,
+    header input,
+    header select,
+    header a,
+    header [role="button"] {
+      cursor: default;
+    }
+  }
+}
+
+/* Custom premium scrollbar system matching macOS */
+.overflow-y-auto,
+.overflow-auto,
+.overflow-x-auto {
+  /* Firefox support */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.3s ease;
+}
+
+.overflow-y-auto:hover,
+.overflow-auto:hover,
+.overflow-x-auto:hover,
+.overflow-y-auto.is-scrolling,
+.overflow-auto.is-scrolling,
+.overflow-x-auto.is-scrolling {
+  scrollbar-color: rgba(0, 0, 0, 0.25) transparent;
+}
+
+/* Webkit (Chrome, Safari, Edge) */
+.overflow-y-auto::-webkit-scrollbar,
+.overflow-auto::-webkit-scrollbar,
+.overflow-x-auto::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track,
+.overflow-auto::-webkit-scrollbar-track,
+.overflow-x-auto::-webkit-scrollbar-track {
+  background: transparent !important; /* Always make track invisible / blend into background */
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb,
+.overflow-auto::-webkit-scrollbar-thumb,
+.overflow-x-auto::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.2s ease;
+}
+
+/* Show black translucent thumb on hover or active scroll */
+.overflow-y-auto:hover::-webkit-scrollbar-thumb,
+.overflow-auto:hover::-webkit-scrollbar-thumb,
+.overflow-x-auto:hover::-webkit-scrollbar-thumb,
+.overflow-y-auto.is-scrolling::-webkit-scrollbar-thumb,
+.overflow-auto.is-scrolling::-webkit-scrollbar-thumb,
+.overflow-x-auto.is-scrolling::-webkit-scrollbar-thumb,
+.overflow-y-auto::-webkit-scrollbar-thumb:active,
+.overflow-auto::-webkit-scrollbar-thumb:active,
+.overflow-x-auto::-webkit-scrollbar-thumb:active {
+  background-color: rgba(0, 0, 0, 0.25);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Dark mode: white translucent thumb */
+.dark .overflow-y-auto:hover::-webkit-scrollbar-thumb,
+.dark .overflow-auto:hover::-webkit-scrollbar-thumb,
+.dark .overflow-x-auto:hover::-webkit-scrollbar-thumb,
+.dark .overflow-y-auto.is-scrolling::-webkit-scrollbar-thumb,
+.dark .overflow-auto.is-scrolling::-webkit-scrollbar-thumb,
+.dark .overflow-x-auto.is-scrolling::-webkit-scrollbar-thumb,
+.dark .overflow-y-auto::-webkit-scrollbar-thumb:active,
+.dark .overflow-auto::-webkit-scrollbar-thumb:active,
+.dark .overflow-x-auto::-webkit-scrollbar-thumb:active {
+  background-color: rgba(255, 255, 255, 0.22);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
