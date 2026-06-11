@@ -35,7 +35,7 @@ export default function RootLayout({
         <link rel="shortcut icon" href="/favicon/favicon.ico" />
         <meta name="theme-color" content="#1e1e1e" />
       </head>
-      <body className="h-dvh overflow-hidden bg-gradient-to-br from-indigo-300 via-purple-300 to-rose-200 font-sans antialiased text-neutral-900 dark:from-[#352a5e] dark:via-[#241d3a] dark:to-[#161221] dark:text-neutral-100">
+      <body className="macos-wallpaper h-dvh overflow-hidden font-sans antialiased text-neutral-900 dark:text-neutral-100">
         {children}
       </body>
     </html>

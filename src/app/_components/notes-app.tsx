@@ -22,6 +22,10 @@ import { Pill } from "./pill";
 import { TrafficLights } from "./traffic-lights";
 import { ListenButton } from "./listen-button";
 
+/** iOS-style glass surface used by the mobile buttons and search bar. */
+const mobileGlass =
+  "border border-black/10 bg-gradient-to-b from-white/95 to-white/65 shadow-md backdrop-blur-xl dark:border-white/[0.12] dark:from-white/[0.18] dark:to-white/[0.06]";
+
 type NoteListItem = {
   slug: string;
   title: string;
@@ -311,7 +315,7 @@ export function NotesApp({ notes, children }: Props) {
             <h1 className="pb-3 pt-5 text-[34px] font-bold leading-tight">
               Folders
             </h1>
-            <ul className="rounded-2xl bg-white/60 p-1 dark:bg-white/[0.08]">
+            <ul className="rounded-2xl bg-white p-1 dark:bg-[#1c1c1e]">
               <li>
                 <MobileFolderRow
                   label="All Notes"
@@ -345,7 +349,10 @@ export function NotesApp({ notes, children }: Props) {
               <button
                 onClick={() => setMobileScreen("folders")}
                 aria-label="Back to folders"
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/60 text-neutral-700 dark:bg-white/[0.1] dark:text-neutral-200"
+                className={cn(
+                  "flex h-10 w-10 items-center justify-center rounded-full text-neutral-700 dark:text-neutral-200",
+                  mobileGlass,
+                )}
               >
                 <ChevronLeftIcon className="h-5 w-5" />
               </button>
@@ -361,7 +368,7 @@ export function NotesApp({ notes, children }: Props) {
                 <h2 className="px-2 pb-1 pt-4 text-[15px] font-bold max-sm:px-1 max-sm:pb-2 max-sm:pt-6 max-sm:text-[22px]">
                   {bucket}
                 </h2>
-                <ul className="max-sm:rounded-2xl max-sm:bg-white/60 max-sm:p-1 dark:max-sm:bg-white/[0.08]">
+                <ul className="max-sm:rounded-2xl max-sm:bg-white max-sm:p-1 dark:max-sm:bg-[#1c1c1e]">
                   {items.map((note, i) => (
                     <li key={note.slug}>
                       <NoteRow
@@ -387,7 +394,7 @@ export function NotesApp({ notes, children }: Props) {
 
           <main
             className={cn(
-              "min-w-0 flex-1 overflow-y-auto bg-white/90 dark:bg-[#1e1e1e]/90",
+              "min-w-0 flex-1 overflow-y-auto bg-white/90 dark:bg-[#1e1e1e]/90 max-sm:bg-white dark:max-sm:bg-black",
               !isNoteOpen && "hidden sm:block",
             )}
           >
@@ -397,17 +404,20 @@ export function NotesApp({ notes, children }: Props) {
                 <Link
                   href="/"
                   aria-label="Back to notes"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-black/[0.06] text-neutral-700 backdrop-blur-xl dark:bg-white/[0.12] dark:text-neutral-200"
+                  className={cn(
+                    "flex h-10 w-10 items-center justify-center rounded-full text-neutral-700 dark:text-neutral-200",
+                    mobileGlass,
+                  )}
                 >
                   <ChevronLeftIcon className="h-5 w-5" />
                 </Link>
                 <div className="flex items-center gap-2.5">
                   {activeNote?.hasAudio && (
-                    <span className="flex h-10 items-center rounded-full bg-black/[0.06] px-2 backdrop-blur-xl dark:bg-white/[0.12]">
+                    <span className={cn("flex h-10 items-center rounded-full px-2", mobileGlass)}>
                       <ListenButton src={`/api/audio/${activeNote.slug}`} />
                     </span>
                   )}
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/[0.06] backdrop-blur-xl dark:bg-white/[0.12]">
+                  <span className={cn("flex h-10 w-10 items-center justify-center rounded-full", mobileGlass)}>
                     <ShareButton title={activeNote?.title ?? "Notes"} />
                   </span>
                 </div>
@@ -421,7 +431,7 @@ export function NotesApp({ notes, children }: Props) {
       {/* Mobile bottom search bar */}
       {!isNoteOpen && (
         <div className="absolute inset-x-0 bottom-0 z-20 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:hidden">
-          <label className="flex h-12 items-center gap-2.5 rounded-full border border-black/10 bg-white/75 px-4 shadow-lg backdrop-blur-xl dark:border-white/15 dark:bg-[#1c1c1e]/85">
+          <label className={cn("flex h-12 items-center gap-2.5 rounded-full px-4", mobileGlass)}>
             <SearchIcon className="h-5 w-5 shrink-0 text-neutral-500 dark:text-neutral-400" />
             <input
               type="search"
