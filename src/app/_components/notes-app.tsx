@@ -182,8 +182,8 @@ export function NotesApp({ notes, children }: Props) {
     <div className="flex h-full">
       {/* Folders pane */}
       {!sidebarHidden && (
-        <div className="hidden w-56 shrink-0 flex-col bg-white/40 dark:bg-white/[0.02] lg:flex">
-          <aside className="flex-grow flex flex-col my-2 ml-2 mr-0 rounded-2xl border border-black/[0.18] dark:border-white/[0.15] bg-gradient-to-b from-white/10 to-transparent backdrop-blur-md dark:from-white/[0.02] dark:to-transparent shadow-lg">
+        <div className="hidden w-56 shrink-0 flex-col bg-white/60 dark:bg-white/[0.06] lg:flex">
+          <aside className="flex-grow flex flex-col my-2 ml-2 mr-0 rounded-2xl border border-black/[0.18] dark:border-white/[0.15] bg-gradient-to-b from-white/20 to-transparent backdrop-blur-md dark:from-white/[0.06] dark:to-transparent shadow-lg">
             <div className="flex h-14 shrink-0 items-center justify-between px-4">
               <TrafficLights />
               {sidebarToggle}
@@ -219,7 +219,7 @@ export function NotesApp({ notes, children }: Props) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Toolbar */}
-        <header className="flex h-14 shrink-0 items-center border-b border-black/10 dark:border-white/10 bg-white/40 dark:bg-white/[0.02]">
+        <header className="flex h-14 shrink-0 items-center border-b border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/[0.06]">
           {/* Notes list header part */}
           <div
             className={cn(
@@ -318,7 +318,7 @@ export function NotesApp({ notes, children }: Props) {
           {/* Notes list */}
           <aside
             className={cn(
-              "w-full shrink-0 flex-col overflow-y-auto border-r border-black/10 bg-white/40 px-3 pb-4 dark:border-white/10 dark:bg-white/[0.02] sm:flex sm:w-72 lg:w-80",
+              "w-full shrink-0 flex-col overflow-y-auto border-r border-black/10 bg-white/60 px-3 pb-4 dark:border-white/10 dark:bg-white/[0.06] sm:flex sm:w-72 lg:w-80",
               isNoteOpen ? "hidden sm:flex" : "flex",
             )}
           >
@@ -351,7 +351,7 @@ export function NotesApp({ notes, children }: Props) {
             )}
           </aside>
  
-          <main className="min-w-0 flex-1 overflow-y-auto bg-white/80 dark:bg-[#1e1e1e]/80">
+          <main className="min-w-0 flex-1 overflow-y-auto bg-white/90 dark:bg-[#1e1e1e]/90">
             {children}
           </main>
         </div>
