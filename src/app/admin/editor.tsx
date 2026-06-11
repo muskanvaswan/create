@@ -146,6 +146,8 @@ export function Editor({ initialNotes, initialFolders }: Props) {
   const editorRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const savedRange = useRef<Range | null>(null);
+  // Tracks which slug is currently being loaded so stale async results are ignored.
+  const loadingSlug = useRef<string | null>(null);
   const now = useMemo(() => new Date(), []);
 
   // The note body is an uncontrolled contentEditable: React never re-renders
@@ -155,6 +157,19 @@ export function Editor({ initialNotes, initialFolders }: Props) {
       editorRef.current.innerHTML = draftHtml;
     }
   }, [selected, draftHtml]);
+
+  // Close the "More" dropdown when the user clicks anywhere outside it.
+  const moreRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    };
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }, [moreOpen]);
 
   // Keep the Aa menu's checkmarks in sync with wherever the caret is.
   useEffect(() => {
@@ -200,6 +215,7 @@ export function Editor({ initialNotes, initialFolders }: Props) {
   const changeFolder = async (newFolder: string | null) => {
     if (!confirmDiscard()) return;
     setFolder(newFolder);
+    setMoreOpen(false);
 
     const newVisible = notes.filter((note) => {
       if (newFolder && note.folder !== newFolder) return false;
@@ -213,14 +229,19 @@ export function Editor({ initialNotes, initialFolders }: Props) {
 
     if (newVisible.length > 0) {
       const note = newVisible[0];
-      const html = await markdownToHtml(note.content);
+      // Set selection state before the async conversion (same reason as in open()).
+      loadingSlug.current = note.slug;
       setSelected(note.slug);
       setDraft({ title: note.title, folder: note.folder });
-      setDraftHtml(html);
-      if (editorRef.current) editorRef.current.innerHTML = html;
+      setDraftHtml("");
+      if (editorRef.current) editorRef.current.innerHTML = "";
       setDirty(false);
       setError(null);
       setFormatOpen(false);
+      const html = await markdownToHtml(note.content);
+      if (loadingSlug.current !== note.slug) return;
+      setDraftHtml(html);
+      if (editorRef.current) editorRef.current.innerHTML = html;
     } else {
       setSelected(null);
       setDraft(null);
@@ -233,14 +254,23 @@ export function Editor({ initialNotes, initialFolders }: Props) {
     if (!confirmDiscard()) return;
     const note = notes.find((n) => n.slug === slug);
     if (!note) return;
-    const html = await markdownToHtml(note.content);
+    // Update selection state synchronously before the async conversion so that
+    // openNote always reflects the note the user intends to work with.
+    // This prevents removeNote from targeting the stale previous selection if
+    // the "More" dropdown is triggered during the markdownToHtml call.
+    loadingSlug.current = slug;
     setSelected(slug);
     setDraft({ title: note.title, folder: note.folder });
-    setDraftHtml(html);
-    if (editorRef.current) editorRef.current.innerHTML = html;
+    setDraftHtml("");
+    if (editorRef.current) editorRef.current.innerHTML = "";
     setDirty(false);
     setError(null);
     setFormatOpen(false);
+    setMoreOpen(false);
+    const html = await markdownToHtml(note.content);
+    if (loadingSlug.current !== slug) return;
+    setDraftHtml(html);
+    if (editorRef.current) editorRef.current.innerHTML = html;
   };
 
   const openNew = () => {
@@ -517,7 +547,7 @@ export function Editor({ initialNotes, initialFolders }: Props) {
                   </p>
                 </div>
               </div>
-              <span className="relative hidden sm:block">
+              <span ref={moreRef} className="relative hidden sm:block">
                 <Pill>
                   <ToolbarButton
                     label="More"
