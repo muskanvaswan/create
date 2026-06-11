@@ -8,7 +8,7 @@ import {
   expectedRpID,
   hasRegisteredPasskey,
   readChallengeValue,
-  saveCredential,
+  trySaveCredential,
 } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
@@ -37,14 +37,21 @@ export async function POST(req: NextRequest) {
   }
 
   const { credential } = verification.registrationInfo;
-  saveCredential({
+  const stored = {
     id: credential.id,
     publicKey: Buffer.from(credential.publicKey).toString("base64url"),
     counter: credential.counter,
     transports: credential.transports,
-  });
+  };
+  const persisted = trySaveCredential(stored);
 
-  const res = NextResponse.json({ verified: true });
+  // On read-only hosts the credential can't be written to disk; hand it back
+  // so the owner can store it in the PASSKEY_CREDENTIAL environment variable.
+  const res = NextResponse.json(
+    persisted
+      ? { verified: true }
+      : { verified: true, credentialEnv: JSON.stringify(stored) },
+  );
   res.cookies.delete(CHALLENGE_COOKIE);
   res.cookies.set(SESSION_COOKIE, createSessionValue(), {
     httpOnly: true,

@@ -5,6 +5,7 @@ import {
   createChallengeValue,
   expectedRpID,
   hasRegisteredPasskey,
+  isSetupAllowed,
 } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
@@ -13,6 +14,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: "A passkey is already registered" },
       { status: 403 },
+    );
+  }
+
+  const body = await req.json().catch(() => ({}));
+  if (!isSetupAllowed(body?.password)) {
+    return NextResponse.json(
+      { error: "Wrong setup password" },
+      { status: 401 },
     );
   }
 

@@ -1,9 +1,6 @@
-import fs from "fs";
-import { join } from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthenticatedRequest } from "@/lib/auth";
-
-const uploadsDir = join(process.cwd(), "public", "assets", "uploads");
+import { writeFile } from "@/lib/content-store";
 
 export async function POST(req: NextRequest) {
   if (!isAuthenticatedRequest(req)) {
@@ -20,8 +17,11 @@ export async function POST(req: NextRequest) {
     file.name.toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/^-+/, "") ||
     "file";
   const name = `${Date.now()}-${safeName}`;
-  fs.mkdirSync(uploadsDir, { recursive: true });
-  fs.writeFileSync(join(uploadsDir, name), Buffer.from(await file.arrayBuffer()));
+  await writeFile(
+    `public/assets/uploads/${name}`,
+    Buffer.from(await file.arrayBuffer()),
+    `admin: upload "${name}"`,
+  );
 
   return NextResponse.json({
     path: `/assets/uploads/${name}`,

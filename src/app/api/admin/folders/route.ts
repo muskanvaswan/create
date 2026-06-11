@@ -12,5 +12,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
   }
 
-  return NextResponse.json({ folders: saveFolder(name.trim()) });
+  return NextResponse.json({ folders: await saveFolder(name.trim()) });
 }

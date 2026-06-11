@@ -1,15 +1,14 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getPublicPosts, getPostBySlug, isHiddenPost } from "@/lib/api";
-import { noteExists } from "@/lib/notes-store";
+import { getPublicPosts, getPostBySlug, isHiddenPost, postExists } from "@/lib/api";
 import { audioExists } from "@/lib/tts";
 import markdownToHtml from "@/lib/markdownToHtml";
 import { Note } from "@/app/_components/note";
 import { Post as PostType } from "@/interfaces/post";
 
 function getPublicPost(slug: string): PostType | null {
-  if (!noteExists(slug)) return null;
+  if (!postExists(slug)) return null;
   const post = getPostBySlug(slug);
   return isHiddenPost(post) ? null : post;
 }

@@ -9,6 +9,13 @@ export function getPostSlugs() {
   return fs.readdirSync(postsDirectory);
 }
 
+export function postExists(slug: string): boolean {
+  return (
+    /^[a-z0-9][a-z0-9-]*$/.test(slug) &&
+    fs.existsSync(join(postsDirectory, `${slug}.md`))
+  );
+}
+
 export function getPostBySlug(slug: string) {
   const realSlug = slug.replace(/\.md$/, "");
   const fullPath = join(postsDirectory, `${realSlug}.md`);
