@@ -26,3 +26,14 @@ export function getAllPosts(): Post[] {
     .sort((post1, post2) => (post1.date > post2.date ? -1 : 1));
   return posts;
 }
+
+// Folders that exist only in the admin editor, never on the public site.
+export const HIDDEN_FOLDERS = ["Drafts"];
+
+export function isHiddenPost(post: Post): boolean {
+  return HIDDEN_FOLDERS.includes(post.folder ?? "Notes");
+}
+
+export function getPublicPosts(): Post[] {
+  return getAllPosts().filter((post) => !isHiddenPost(post));
+}

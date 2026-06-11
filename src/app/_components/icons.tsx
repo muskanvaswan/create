@@ -19,6 +19,25 @@ function Svg({ className, children }: IconProps & { children: React.ReactNode })
   );
 }
 
+export function ComposeIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </Svg>
+  );
+}
+
+export function NewFolderIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+      <path d="M12 11v6" />
+      <path d="M9 14h6" />
+    </Svg>
+  );
+}
+
 export function SidebarIcon(props: IconProps) {
   return (
     <Svg {...props}>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPostBySlug } from "@/lib/api";
 import { isAuthenticatedRequest } from "@/lib/auth";
-import { noteExists, writeNote } from "@/lib/notes-store";
+import { deleteNote, noteExists, writeNote } from "@/lib/notes-store";
 
 type Params = {
   params: Promise<{ slug: string }>;
@@ -33,4 +33,18 @@ export async function PUT(req: NextRequest, props: Params) {
   });
 
   return NextResponse.json({ slug });
+}
+
+export async function DELETE(req: NextRequest, props: Params) {
+  if (!isAuthenticatedRequest(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { slug } = await props.params;
+  if (!noteExists(slug)) {
+    return NextResponse.json({ error: "Note not found" }, { status: 404 });
+  }
+
+  deleteNote(slug);
+  return NextResponse.json({ ok: true });
 }

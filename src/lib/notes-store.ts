@@ -59,6 +59,10 @@ export function noteExists(slug: string): boolean {
   return isValidSlug(slug) && fs.existsSync(join(postsDirectory, `${slug}.md`));
 }
 
+export function deleteNote(slug: string): void {
+  fs.unlinkSync(join(postsDirectory, `${slug}.md`));
+}
+
 export function loadFolders(): string[] {
   if (!fs.existsSync(foldersPath)) return [];
   return JSON.parse(fs.readFileSync(foldersPath, "utf8")) as string[];

@@ -52,3 +52,28 @@
 .markdown img {
   @apply my-4 rounded-lg;
 }
+
+.markdown table {
+  @apply my-4 w-full border-collapse text-[14px];
+}
+
+.markdown th,
+.markdown td {
+  @apply border border-black/10 px-3 py-1.5 text-left dark:border-white/15;
+}
+
+.markdown th {
+  @apply bg-black/5 font-semibold dark:bg-white/5;
+}
+
+.markdown input[type="checkbox"] {
+  @apply mr-1.5 align-middle accent-[#e0a30c];
+}
+
+.markdown ul li:has(> input[type="checkbox"]) {
+  @apply list-none;
+}
+
+.markdown ul:has(> li > input[type="checkbox"]) {
+  @apply pl-1;
+}

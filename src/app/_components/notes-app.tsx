@@ -16,6 +16,8 @@ import {
   SidebarIcon,
   TableIcon,
 } from "./icons";
+import { Pill } from "./pill";
+import { TrafficLights } from "./traffic-lights";
 
 type NoteListItem = {
   slug: string;
@@ -46,36 +48,6 @@ function rowDate(date: Date, now: Date): string {
   if (days === 1) return "Yesterday";
   if (days <= 7) return format(date, "EEEE");
   return format(date, "dd/MM/yy");
-}
-
-function TrafficLights() {
-  return (
-    <span className="flex gap-2" aria-hidden="true">
-      <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
-      <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
-      <span className="h-3 w-3 rounded-full bg-[#28c840]" />
-    </span>
-  );
-}
-
-/** Raised glass pill that wraps a group of toolbar buttons. */
-function Pill({
-  className,
-  children,
-}: {
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <span
-      className={cn(
-        "items-center rounded-full border border-black/10 bg-gradient-to-b from-white/80 to-white/40 px-1 py-1 shadow-md dark:border-white/15 dark:from-white/[0.12] dark:to-white/[0.05]",
-        className ?? "flex",
-      )}
-    >
-      {children}
-    </span>
-  );
 }
 
 /** Editing actions are read-only on the published site, so they render disabled. */

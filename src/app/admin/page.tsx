@@ -32,7 +32,12 @@ export default async function AdminPage() {
   }));
 
   const folders = [
-    ...new Set([...loadFolders(), ...notes.map((note) => note.folder)]),
+    ...new Set([
+      "Notes",
+      "Drafts",
+      ...loadFolders(),
+      ...notes.map((note) => note.folder),
+    ]),
   ].sort();
 
   return (

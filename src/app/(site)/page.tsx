@@ -1,9 +1,9 @@
 import { Note } from "@/app/_components/note";
-import { getAllPosts } from "@/lib/api";
+import { getPublicPosts } from "@/lib/api";
 import markdownToHtml from "@/lib/markdownToHtml";
 
 export default async function Index() {
-  const latest = getAllPosts()[0];
+  const latest = getPublicPosts()[0];
 
   if (!latest) {
     return (

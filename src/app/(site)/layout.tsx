@@ -1,4 +1,4 @@
-import { getAllPosts } from "@/lib/api";
+import { getPublicPosts } from "@/lib/api";
 import { GlassWindow } from "@/app/_components/glass-window";
 import { NotesApp } from "@/app/_components/notes-app";
 
@@ -7,7 +7,7 @@ export default function SiteLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const notes = getAllPosts().map((post) => ({
+  const notes = getPublicPosts().map((post) => ({
     slug: post.slug,
     title: post.title,
     date: post.date,
