@@ -3,7 +3,7 @@
 import cn from "classnames";
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChecklistIcon,
   ComposeIcon,
@@ -16,8 +16,12 @@ import {
   SidebarIcon,
   TableIcon,
 } from "@/app/_components/icons";
+import markdownStyles from "@/app/_components/markdown-styles.module.css";
 import { Pill } from "@/app/_components/pill";
 import { TrafficLights } from "@/app/_components/traffic-lights";
+import htmlToMarkdown from "@/lib/htmlToMarkdown";
+import markdownToHtml from "@/lib/markdownToHtml";
+import { FormatMenu, FormatState } from "./format-menu";
 
 type AdminNote = {
   slug: string;
@@ -35,16 +39,16 @@ type Props = {
 type Draft = {
   title: string;
   folder: string;
-  content: string;
 };
 
 const NEW_NOTE = "__new__";
 
-const TABLE_SNIPPET = `
-| Column 1 | Column 2 |
-| -------- | -------- |
-|          |          |
-`;
+const TABLE_HTML =
+  "<table><thead><tr><th>Column 1</th><th>Column 2</th></tr></thead>" +
+  "<tbody><tr><td>&nbsp;</td><td>&nbsp;</td></tr></tbody></table><p><br></p>";
+
+const CHECKLIST_HTML =
+  '<ul><li><input type="checkbox">&nbsp;</li></ul>';
 
 function dateBucket(date: Date, now: Date): string {
   const days = differenceInCalendarDays(now, date);
@@ -64,6 +68,35 @@ function rowDate(date: Date, now: Date): string {
   return format(date, "dd/MM/yy");
 }
 
+/** First content line of a note, stripped of markdown tokens, for list previews. */
+function previewLine(markdown: string): string {
+  const line = markdown
+    .split("\n")
+    .map((l) => l.replace(/^[#>\s]+|^[-*]\s(\[[ x]\]\s)?|^\d+\.\s/g, "").trim())
+    .find((l) => l.length > 0);
+  return line ?? "No additional text";
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function readFormatState(): FormatState {
+  return {
+    block: document.queryCommandValue("formatBlock").toLowerCase(),
+    bold: document.queryCommandState("bold"),
+    italic: document.queryCommandState("italic"),
+    underline: document.queryCommandState("underline"),
+    strike: document.queryCommandState("strikeThrough"),
+    ul: document.queryCommandState("insertUnorderedList"),
+    ol: document.queryCommandState("insertOrderedList"),
+  };
+}
+
 function ToolbarButton({
   label,
   onClick,
@@ -79,6 +112,8 @@ function ToolbarButton({
     <button
       title={label}
       aria-label={label}
+      // Keep focus (and the text selection) in the note while clicking tools.
+      onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
       disabled={disabled}
       className="flex h-7 w-9 items-center justify-center text-neutral-600 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 dark:text-neutral-300 dark:hover:text-white"
@@ -94,6 +129,7 @@ export function Editor({ initialNotes, initialFolders }: Props) {
   const [folders, setFolders] = useState(initialFolders);
   const [selected, setSelected] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [draftHtml, setDraftHtml] = useState("");
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
@@ -104,10 +140,29 @@ export function Editor({ initialNotes, initialFolders }: Props) {
   const [addingFolder, setAddingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [moreOpen, setMoreOpen] = useState(false);
+  const [formatOpen, setFormatOpen] = useState(false);
+  const [formatState, setFormatState] = useState<FormatState | null>(null);
 
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const savedRange = useRef<Range | null>(null);
   const now = useMemo(() => new Date(), []);
+
+  // The note body is an uncontrolled contentEditable: React never re-renders
+  // its contents, we load HTML into it imperatively when a note is opened.
+  useEffect(() => {
+    if (editorRef.current && editorRef.current.innerHTML !== draftHtml) {
+      editorRef.current.innerHTML = draftHtml;
+    }
+  }, [selected, draftHtml]);
+
+  // Keep the Aa menu's checkmarks in sync with wherever the caret is.
+  useEffect(() => {
+    if (!formatOpen) return;
+    const update = () => setFormatState(readFormatState());
+    document.addEventListener("selectionchange", update);
+    return () => document.removeEventListener("selectionchange", update);
+  }, [formatOpen]);
 
   const folderCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -140,25 +195,31 @@ export function Editor({ initialNotes, initialFolders }: Props) {
   const isOpen = selected !== null && draft !== null;
   const openNote = notes.find((n) => n.slug === selected);
 
-  const confirmDiscard = () =>
-    !dirty || confirm("Discard unsaved changes?");
+  const confirmDiscard = () => !dirty || confirm("Discard unsaved changes?");
 
-  const open = (slug: string) => {
+  const open = async (slug: string) => {
     if (!confirmDiscard()) return;
     const note = notes.find((n) => n.slug === slug);
     if (!note) return;
+    const html = await markdownToHtml(note.content);
     setSelected(slug);
-    setDraft({ title: note.title, folder: note.folder, content: note.content });
+    setDraft({ title: note.title, folder: note.folder });
+    setDraftHtml(html);
+    if (editorRef.current) editorRef.current.innerHTML = html;
     setDirty(false);
     setError(null);
+    setFormatOpen(false);
   };
 
   const openNew = () => {
     if (!confirmDiscard()) return;
     setSelected(NEW_NOTE);
-    setDraft({ title: "", folder: folder ?? "Notes", content: "" });
+    setDraft({ title: "", folder: folder ?? "Notes" });
+    setDraftHtml("");
+    if (editorRef.current) editorRef.current.innerHTML = "";
     setDirty(false);
     setError(null);
+    setFormatOpen(false);
   };
 
   const close = () => {
@@ -166,6 +227,7 @@ export function Editor({ initialNotes, initialFolders }: Props) {
     setSelected(null);
     setDraft(null);
     setDirty(false);
+    setFormatOpen(false);
   };
 
   const edit = (patch: Partial<Draft>) => {
@@ -173,45 +235,28 @@ export function Editor({ initialNotes, initialFolders }: Props) {
     setDirty(true);
   };
 
-  /** Replace content and restore focus/selection in the textarea. */
-  const updateContent = (next: string, selStart: number, selEnd: number) => {
-    edit({ content: next });
-    requestAnimationFrame(() => {
-      const ta = textareaRef.current;
-      if (ta) {
-        ta.focus();
-        ta.setSelectionRange(selStart, selEnd);
-      }
-    });
+  /** Run an editing command against the contentEditable note body. */
+  const exec = (command: string, value?: string) => {
+    editorRef.current?.focus();
+    document.execCommand("styleWithCSS", false, "false");
+    document.execCommand(command, false, value);
+    setDirty(true);
+    setFormatState(readFormatState());
   };
 
-  /** Toggle a markdown prefix (heading, checklist) on the selected lines. */
-  const toggleLinePrefix = (prefix: string) => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    const { selectionStart, selectionEnd, value } = ta;
-    const start = value.lastIndexOf("\n", selectionStart - 1) + 1;
-    let end = value.indexOf("\n", selectionEnd);
-    if (end === -1) end = value.length;
-    const lines = value.slice(start, end).split("\n");
-    const allHave = lines.every((line) => line.startsWith(prefix));
-    const block = lines
-      .map((line) => (allHave ? line.slice(prefix.length) : prefix + line))
-      .join("\n");
-    updateContent(
-      value.slice(0, start) + block + value.slice(end),
-      start,
-      start + block.length,
-    );
+  const rememberSelection = () => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      savedRange.current = sel.getRangeAt(0).cloneRange();
+    }
   };
 
-  const insertAtCursor = (snippet: string) => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    const { selectionStart, selectionEnd, value } = ta;
-    const next = value.slice(0, selectionStart) + snippet + value.slice(selectionEnd);
-    const cursor = selectionStart + snippet.length;
-    updateContent(next, cursor, cursor);
+  const restoreSelection = () => {
+    const sel = window.getSelection();
+    if (sel && savedRange.current) {
+      sel.removeAllRanges();
+      sel.addRange(savedRange.current);
+    }
   };
 
   const attach = async (file: File) => {
@@ -223,7 +268,15 @@ export function Editor({ initialNotes, initialFolders }: Props) {
       return;
     }
     const { path, isImage } = await res.json();
-    insertAtCursor(isImage ? `![${file.name}](${path})` : `[${file.name}](${path})`);
+    const name = escapeHtml(file.name);
+    editorRef.current?.focus();
+    restoreSelection();
+    exec(
+      "insertHTML",
+      isImage
+        ? `<img src="${path}" alt="${name}">`
+        : `<a href="${path}">${name}</a>`,
+    );
   };
 
   const save = async () => {
@@ -234,13 +287,14 @@ export function Editor({ initialNotes, initialFolders }: Props) {
     setSaving(true);
     setError(null);
     try {
+      const content = htmlToMarkdown(editorRef.current?.innerHTML ?? "");
       const isNew = selected === NEW_NOTE;
       const res = await fetch(
         isNew ? "/api/admin/notes" : `/api/admin/notes/${selected}`,
         {
           method: isNew ? "POST" : "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(draft),
+          body: JSON.stringify({ ...draft, content }),
         },
       );
       if (!res.ok) {
@@ -251,7 +305,7 @@ export function Editor({ initialNotes, initialFolders }: Props) {
         slug,
         title: draft.title.trim(),
         folder: draft.folder,
-        content: draft.content,
+        content,
         date: isNew
           ? new Date().toISOString()
           : notes.find((n) => n.slug === slug)?.date ?? new Date().toISOString(),
@@ -454,42 +508,57 @@ export function Editor({ initialNotes, initialFolders }: Props) {
                 <ComposeIcon />
               </ToolbarButton>
             </Pill>
+            <span className="relative hidden md:block">
+              <Pill>
+                <ToolbarButton
+                  label="Text format"
+                  onClick={() => {
+                    setFormatState(readFormatState());
+                    setFormatOpen((v) => !v);
+                  }}
+                  disabled={!isOpen}
+                >
+                  <span className="text-[15px] font-medium leading-none">
+                    Aa
+                  </span>
+                </ToolbarButton>
+                <ToolbarButton
+                  label="Checklist"
+                  onClick={() => exec("insertHTML", CHECKLIST_HTML)}
+                  disabled={!isOpen}
+                >
+                  <ChecklistIcon />
+                </ToolbarButton>
+                <ToolbarButton
+                  label="Table"
+                  onClick={() => exec("insertHTML", TABLE_HTML)}
+                  disabled={!isOpen}
+                >
+                  <TableIcon />
+                </ToolbarButton>
+                <ToolbarButton
+                  label="Attach file"
+                  onClick={() => {
+                    rememberSelection();
+                    fileRef.current?.click();
+                  }}
+                  disabled={!isOpen}
+                >
+                  <PaperclipIcon />
+                </ToolbarButton>
+              </Pill>
+              {formatOpen && formatState && (
+                <FormatMenu
+                  state={formatState}
+                  onInline={(command) => exec(command)}
+                  onBlock={(tag) => exec("formatBlock", tag)}
+                  onList={(command) => exec(command)}
+                  onClose={() => setFormatOpen(false)}
+                />
+              )}
+            </span>
             <Pill className="hidden md:flex">
-              <ToolbarButton
-                label="Heading"
-                onClick={() => toggleLinePrefix("## ")}
-                disabled={!isOpen}
-              >
-                <span className="text-[15px] font-medium leading-none">Aa</span>
-              </ToolbarButton>
-              <ToolbarButton
-                label="Checklist"
-                onClick={() => toggleLinePrefix("- [ ] ")}
-                disabled={!isOpen}
-              >
-                <ChecklistIcon />
-              </ToolbarButton>
-              <ToolbarButton
-                label="Table"
-                onClick={() => insertAtCursor(TABLE_SNIPPET)}
-                disabled={!isOpen}
-              >
-                <TableIcon />
-              </ToolbarButton>
-              <ToolbarButton
-                label="Attach file"
-                onClick={() => fileRef.current?.click()}
-                disabled={!isOpen}
-              >
-                <PaperclipIcon />
-              </ToolbarButton>
-            </Pill>
-            <Pill className="hidden md:flex">
-              <ToolbarButton
-                label="Share"
-                onClick={share}
-                disabled={!openNote}
-              >
+              <ToolbarButton label="Share" onClick={share} disabled={!openNote}>
                 <ShareIcon />
               </ToolbarButton>
             </Pill>
@@ -564,8 +633,7 @@ export function Editor({ initialNotes, initialFolders }: Props) {
                           <span className="mr-2 tabular-nums">
                             {rowDate(parseISO(note.date), now)}
                           </span>
-                          {note.content.split("\n").find((l) => l.trim()) ??
-                            "No additional text"}
+                          {previewLine(note.content)}
                         </p>
                         <p
                           className={cn(
@@ -646,12 +714,17 @@ export function Editor({ initialNotes, initialFolders }: Props) {
                   placeholder="Title"
                   className="mb-4 w-full bg-transparent text-[26px] font-bold leading-tight outline-none placeholder:text-neutral-400"
                 />
-                <textarea
-                  ref={textareaRef}
-                  value={draft.content}
-                  onChange={(e) => edit({ content: e.target.value })}
-                  placeholder="Write in markdown..."
-                  className="min-h-0 w-full flex-1 resize-none bg-transparent text-[15px] leading-relaxed outline-none placeholder:text-neutral-400"
+                <div
+                  ref={editorRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  data-placeholder="Start writing..."
+                  onInput={() => setDirty(true)}
+                  className={cn(
+                    markdownStyles["markdown"],
+                    "min-h-0 w-full flex-1 overflow-y-auto pb-10 outline-none",
+                    "empty:before:text-neutral-400 empty:before:content-[attr(data-placeholder)]",
+                  )}
                 />
               </div>
             )}
