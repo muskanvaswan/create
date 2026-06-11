@@ -1,5 +1,4 @@
 import { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPublicPosts, getPostBySlug, isHiddenPost } from "@/lib/api";
 import { noteExists } from "@/lib/notes-store";
@@ -25,22 +24,12 @@ export default async function Post(props: Params) {
   const content = await markdownToHtml(post.content || "");
 
   return (
-    <>
-      <nav className="sticky top-0 bg-white/90 px-3 py-2 backdrop-blur dark:bg-[#1e1e1e]/90 sm:hidden">
-        <Link
-          href="/"
-          className="text-[15px] font-medium text-[#e0a30c]"
-        >
-          ‹ Notes
-        </Link>
-      </nav>
-      <Note
-        title={post.title}
-        date={post.date}
-        contentHtml={content}
-        audioSrc={audioExists(post.slug) ? `/api/audio/${post.slug}` : null}
-      />
-    </>
+    <Note
+      title={post.title}
+      date={post.date}
+      contentHtml={content}
+      audioSrc={audioExists(post.slug) ? `/api/audio/${post.slug}` : null}
+    />
   );
 }
 

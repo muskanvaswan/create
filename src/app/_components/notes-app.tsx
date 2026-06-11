@@ -8,6 +8,8 @@ import { useMemo, useState } from "react";
 import {
   CheckIcon,
   ChecklistIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   FolderIcon,
   MoreIcon,
   PaperclipIcon,
@@ -113,9 +115,14 @@ export function NotesApp({ notes, children }: Props) {
   const [query, setQuery] = useState("");
   const [folder, setFolder] = useState<string | null>(null);
   const [sidebarHidden, setSidebarHidden] = useState(false);
+  const [mobileScreen, setMobileScreen] = useState<"folders" | "list">("list");
 
   const changeFolder = (newFolder: string | null) => {
     setFolder(newFolder);
+    setMobileScreen("list");
+    // On phones the list itself is a screen, so picking a folder should land
+    // there instead of auto-opening the first note.
+    if (typeof window !== "undefined" && window.innerWidth < 640) return;
     const newVisible = notes.filter((note) => {
       if (newFolder && note.folder !== newFolder) return false;
       const q = query.trim().toLowerCase();
@@ -179,7 +186,7 @@ export function NotesApp({ notes, children }: Props) {
   );
 
   return (
-    <div className="flex h-full">
+    <div className="relative flex h-full">
       {/* Folders pane */}
       {!sidebarHidden && (
         <div className="hidden w-56 shrink-0 flex-col bg-white/60 dark:bg-white/[0.06] lg:flex">
@@ -218,16 +225,10 @@ export function NotesApp({ notes, children }: Props) {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Toolbar */}
-        <header className="flex h-14 shrink-0 items-center border-b border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/[0.06]">
+        {/* Toolbar (desktop/tablet only) */}
+        <header className="hidden h-14 shrink-0 items-center border-b border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/[0.06] sm:flex">
           {/* Notes list header part */}
-          <div
-            className={cn(
-              "h-full shrink-0 items-center border-r border-black/10 dark:border-white/10",
-              isNoteOpen ? "hidden sm:flex sm:w-72 lg:w-80" : "flex w-full sm:w-72 lg:w-80",
-              "px-3 sm:px-4"
-            )}
-          >
+          <div className="flex h-full w-72 shrink-0 items-center border-r border-black/10 px-4 dark:border-white/10 lg:w-80">
             <div className="flex flex-1 items-center justify-between min-w-0">
               <div className="flex min-w-0 items-center gap-2">
                 <span className={cn(sidebarHidden ? "flex" : "lg:hidden")}>
@@ -243,31 +244,16 @@ export function NotesApp({ notes, children }: Props) {
                   </p>
                 </div>
               </div>
-              <Pill className="hidden sm:flex">
+              <Pill>
                 <DisabledIcon>
                   <MoreIcon />
                 </DisabledIcon>
               </Pill>
-              <label className="flex sm:hidden h-9 w-full max-w-32 items-center gap-2 rounded-full border border-black/10 bg-gradient-to-b from-white/80 to-white/40 px-3 shadow-md dark:border-white/15 dark:from-white/[0.12] dark:to-white/[0.05]">
-                <SearchIcon className="h-4 w-4 shrink-0 text-neutral-500 dark:text-neutral-400" />
-                <input
-                  type="search"
-                  placeholder="Search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className="w-full bg-transparent text-sm outline-none placeholder:text-neutral-500 dark:placeholder:text-neutral-400"
-                />
-              </label>
             </div>
           </div>
 
           {/* Editor header part */}
-          <div
-            className={cn(
-              "h-full flex-grow grid grid-cols-[1fr_auto_1fr] items-center px-3 sm:px-4",
-              isNoteOpen ? "grid" : "hidden sm:grid"
-            )}
-          >
+          <div className="grid h-full flex-grow grid-cols-[1fr_auto_1fr] items-center px-4">
             {/* Left section: empty/placeholder (matches compose button alignment) */}
             <div className="flex justify-start" />
 
@@ -315,19 +301,67 @@ export function NotesApp({ notes, children }: Props) {
         </header>
 
         <div className="flex min-h-0 flex-1">
+          {/* Mobile folders screen */}
+          <div
+            className={cn(
+              "w-full flex-col overflow-y-auto px-4 pb-28 sm:hidden",
+              !isNoteOpen && mobileScreen === "folders" ? "flex" : "hidden",
+            )}
+          >
+            <h1 className="pb-3 pt-5 text-[34px] font-bold leading-tight">
+              Folders
+            </h1>
+            <ul className="rounded-2xl bg-white/60 p-1 dark:bg-white/[0.08]">
+              <li>
+                <MobileFolderRow
+                  label="All Notes"
+                  count={notes.length}
+                  onClick={() => changeFolder(null)}
+                />
+              </li>
+              {folders.map(([name, count]) => (
+                <li key={name}>
+                  <div className="ml-12 h-px bg-black/5 dark:bg-white/10" />
+                  <MobileFolderRow
+                    label={name}
+                    count={count}
+                    onClick={() => changeFolder(name)}
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
+
           {/* Notes list */}
           <aside
             className={cn(
               "w-full shrink-0 flex-col overflow-y-auto border-r border-black/10 bg-white/60 px-3 pb-4 dark:border-white/10 dark:bg-white/[0.06] sm:flex sm:w-72 lg:w-80",
-              isNoteOpen ? "hidden sm:flex" : "flex",
+              "max-sm:border-r-0 max-sm:bg-transparent max-sm:px-4 max-sm:pb-28 dark:max-sm:bg-transparent",
+              isNoteOpen || mobileScreen === "folders" ? "hidden sm:flex" : "flex",
             )}
           >
+            {/* Mobile list header */}
+            <div className="pt-4 sm:hidden">
+              <button
+                onClick={() => setMobileScreen("folders")}
+                aria-label="Back to folders"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/60 text-neutral-700 dark:bg-white/[0.1] dark:text-neutral-200"
+              >
+                <ChevronLeftIcon className="h-5 w-5" />
+              </button>
+              <h1 className="pt-4 text-[34px] font-bold leading-tight">
+                {folder ?? "All Notes"}
+              </h1>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                {visible.length} {visible.length === 1 ? "Note" : "Notes"}
+              </p>
+            </div>
             {groups.map(([bucket, items]) => (
               <section key={bucket}>
-                <h2 className="px-2 pb-1 pt-4 text-[15px] font-bold">
+                <h2 className="px-2 pb-1 pt-4 text-[15px] font-bold max-sm:px-1 max-sm:pb-2 max-sm:pt-6 max-sm:text-[22px]">
                   {bucket}
                 </h2>
-                <ul>
+                <ul className="max-sm:rounded-2xl max-sm:bg-white/60 max-sm:p-1 dark:max-sm:bg-white/[0.08]">
                   {items.map((note, i) => (
                     <li key={note.slug}>
                       <NoteRow
@@ -350,13 +384,85 @@ export function NotesApp({ notes, children }: Props) {
               </p>
             )}
           </aside>
- 
-          <main className="min-w-0 flex-1 overflow-y-auto bg-white/90 dark:bg-[#1e1e1e]/90">
+
+          <main
+            className={cn(
+              "min-w-0 flex-1 overflow-y-auto bg-white/90 dark:bg-[#1e1e1e]/90",
+              !isNoteOpen && "hidden sm:block",
+            )}
+          >
+            {/* Mobile note header: back, listen (replaces more), share */}
+            {isNoteOpen && (
+              <div className="sticky top-0 z-10 flex items-center justify-between px-3 pb-1 pt-3 sm:hidden">
+                <Link
+                  href="/"
+                  aria-label="Back to notes"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-black/[0.06] text-neutral-700 backdrop-blur-xl dark:bg-white/[0.12] dark:text-neutral-200"
+                >
+                  <ChevronLeftIcon className="h-5 w-5" />
+                </Link>
+                <div className="flex items-center gap-2.5">
+                  {activeNote?.hasAudio && (
+                    <span className="flex h-10 items-center rounded-full bg-black/[0.06] px-2 backdrop-blur-xl dark:bg-white/[0.12]">
+                      <ListenButton src={`/api/audio/${activeNote.slug}`} />
+                    </span>
+                  )}
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/[0.06] backdrop-blur-xl dark:bg-white/[0.12]">
+                    <ShareButton title={activeNote?.title ?? "Notes"} />
+                  </span>
+                </div>
+              </div>
+            )}
             {children}
           </main>
         </div>
       </div>
+
+      {/* Mobile bottom search bar */}
+      {!isNoteOpen && (
+        <div className="absolute inset-x-0 bottom-0 z-20 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:hidden">
+          <label className="flex h-12 items-center gap-2.5 rounded-full border border-black/10 bg-white/75 px-4 shadow-lg backdrop-blur-xl dark:border-white/15 dark:bg-[#1c1c1e]/85">
+            <SearchIcon className="h-5 w-5 shrink-0 text-neutral-500 dark:text-neutral-400" />
+            <input
+              type="search"
+              placeholder="Search"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                if (e.target.value && mobileScreen === "folders") {
+                  setMobileScreen("list");
+                }
+              }}
+              className="w-full bg-transparent text-[17px] outline-none placeholder:text-neutral-500 dark:placeholder:text-neutral-400"
+            />
+          </label>
+        </div>
+      )}
     </div>
+  );
+}
+
+function MobileFolderRow({
+  label,
+  count,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left active:bg-black/5 dark:active:bg-white/10"
+    >
+      <FolderIcon className="h-[22px] w-[22px] shrink-0 text-[#e0a30c]" />
+      <span className="min-w-0 flex-1 truncate text-[17px]">{label}</span>
+      <span className="text-[17px] tabular-nums text-neutral-400 dark:text-neutral-500">
+        {count}
+      </span>
+      <ChevronRightIcon className="h-4 w-4 text-neutral-400 dark:text-neutral-500" />
+    </button>
   );
 }
  
@@ -415,21 +521,19 @@ function NoteRow({
     <Link
       href={`/posts/${note.slug}`}
       className={cn(
-        "block rounded-xl px-3 py-2.5",
+        "block rounded-xl px-3 py-2.5 max-sm:active:bg-black/5 dark:max-sm:active:bg-white/10",
         active
-          ? "bg-[#fed87a] dark:bg-[#a17321]"
+          ? "sm:bg-[#fed87a] sm:dark:bg-[#a17321]"
           : "hover:bg-black/5 dark:hover:bg-white/5",
       )}
     >
-      <p className="truncate text-[15px] font-semibold leading-snug">
+      <p className="truncate text-[15px] font-semibold leading-snug max-sm:text-[17px]">
         {note.title}
       </p>
       <p
         className={cn(
-          "truncate text-[13px] leading-snug",
-          active
-            ? "text-neutral-700 dark:text-neutral-200"
-            : "text-neutral-500 dark:text-neutral-400",
+          "truncate text-[13px] leading-snug max-sm:text-[15px] text-neutral-500 dark:text-neutral-400",
+          active && "sm:text-neutral-700 sm:dark:text-neutral-200",
         )}
       >
         <span className="mr-2 tabular-nums">
@@ -440,10 +544,8 @@ function NoteRow({
       {showFolder && (
         <p
           className={cn(
-            "mt-1 flex items-center gap-1.5 text-[13px]",
-            active
-              ? "text-neutral-700 dark:text-neutral-200"
-              : "text-neutral-500 dark:text-neutral-400",
+            "mt-1 flex items-center gap-1.5 text-[13px] text-neutral-500 dark:text-neutral-400",
+            active && "sm:text-neutral-700 sm:dark:text-neutral-200",
           )}
         >
           <FolderIcon className="h-[14px] w-[14px]" />
