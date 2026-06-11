@@ -1,5 +1,4 @@
 import { format, parseISO } from "date-fns";
-import { ListenButton } from "./listen-button";
 import markdownStyles from "./markdown-styles.module.css";
 
 type Props = {
@@ -15,9 +14,8 @@ export function Note({ title, date, contentHtml, audioSrc }: Props) {
       <p className="pb-4 pt-5 text-center text-xs text-neutral-400 dark:text-neutral-500">
         {format(parseISO(date), "MMMM d, yyyy 'at' h:mm a")}
       </p>
-      <div className="mb-4 flex items-start justify-between gap-3">
+      <div className="mb-4">
         <h1 className="text-[26px] font-bold leading-tight">{title}</h1>
-        {audioSrc && <ListenButton src={audioSrc} />}
       </div>
       <div
         className={markdownStyles["markdown"]}

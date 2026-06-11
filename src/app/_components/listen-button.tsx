@@ -13,7 +13,13 @@ export function ListenButton({ src }: Props) {
 
   // Stop playback when navigating to another note.
   useEffect(() => {
-    return () => audioRef.current?.pause();
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      setPlaying(false);
+    };
   }, [src]);
 
   const toggle = async () => {
@@ -39,14 +45,16 @@ export function ListenButton({ src }: Props) {
     <button
       onClick={toggle}
       title={playing ? "Pause" : "Listen to this note"}
-      className="inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-gradient-to-b from-white/80 to-white/40 px-3 py-1 text-[13px] font-medium text-neutral-600 shadow-sm hover:text-neutral-900 dark:border-white/15 dark:from-white/[0.12] dark:to-white/[0.05] dark:text-neutral-300 dark:hover:text-white"
+      className="group flex h-7 w-9 items-center justify-center rounded-full transition-all duration-200 ease-in-out hover:w-20 text-[13px] font-medium text-neutral-600 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white"
     >
       {playing ? (
-        <PauseIcon className="h-[14px] w-[14px]" />
+        <PauseIcon className="h-[14px] w-[14px] shrink-0" />
       ) : (
-        <PlayIcon className="h-[14px] w-[14px]" />
+        <PlayIcon className="h-[14px] w-[14px] shrink-0" />
       )}
-      {playing ? "Pause" : "Listen"}
+      <span className="max-w-0 overflow-hidden transition-all duration-200 ease-in-out whitespace-nowrap group-hover:max-w-[40px] group-hover:ml-1.5">
+        {playing ? "Pause" : "Listen"}
+      </span>
     </button>
   );
 }

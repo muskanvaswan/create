@@ -18,6 +18,7 @@ import {
 } from "./icons";
 import { Pill } from "./pill";
 import { TrafficLights } from "./traffic-lights";
+import { ListenButton } from "./listen-button";
 
 type NoteListItem = {
   slug: string;
@@ -25,6 +26,7 @@ type NoteListItem = {
   date: string;
   excerpt: string;
   folder: string;
+  hasAudio?: boolean;
 };
 
 type Props = {
@@ -259,6 +261,12 @@ export function NotesApp({ notes, children }: Props) {
             {/* Right section: Share, Search Bar */}
             <div className="flex items-center justify-end gap-2">
               <Pill>
+                {activeNote && activeNote.hasAudio && (
+                  <>
+                    <ListenButton src={`/api/audio/${activeNote.slug}`} />
+                    <div className="h-4 w-px bg-black/10 dark:bg-white/10 mx-1" />
+                  </>
+                )}
                 <ShareButton title={activeNote?.title ?? "Notes"} />
               </Pill>
               <label className="flex h-9 w-full max-w-32 items-center gap-2 rounded-full border border-black/10 bg-gradient-to-b from-white/80 to-white/40 px-3 shadow-md dark:border-white/15 dark:from-white/[0.12] dark:to-white/[0.05] sm:max-w-44 lg:max-w-56">
