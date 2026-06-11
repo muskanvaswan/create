@@ -544,6 +544,16 @@ export function Editor({ initialNotes, initialFolders }: Props) {
                   </span>
                 )}
               </span>
+              <label className="flex sm:hidden h-9 w-full max-w-32 items-center gap-2 rounded-full border border-black/10 bg-gradient-to-b from-white/80 to-white/40 px-3 shadow-md dark:border-white/15 dark:from-white/[0.12] dark:to-white/[0.05]">
+                <SearchIcon className="h-4 w-4 shrink-0 text-neutral-500 dark:text-neutral-400" />
+                <input
+                  type="search"
+                  placeholder="Search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="w-full bg-transparent text-sm outline-none placeholder:text-neutral-500 dark:placeholder:text-neutral-400"
+                />
+              </label>
             </div>
           </div>
 
@@ -630,7 +640,7 @@ export function Editor({ initialNotes, initialFolders }: Props) {
               >
                 {saving ? "Saving..." : "Save"}
               </button>
-              <label className="flex h-9 w-full max-w-32 items-center gap-2 rounded-full border border-black/10 bg-gradient-to-b from-white/80 to-white/40 px-3 shadow-md dark:border-white/15 dark:from-white/[0.12] dark:to-white/[0.05] sm:max-w-44 lg:max-w-56">
+              <label className="hidden sm:flex h-9 w-full max-w-32 items-center gap-2 rounded-full border border-black/10 bg-gradient-to-b from-white/80 to-white/40 px-3 shadow-md dark:border-white/15 dark:from-white/[0.12] dark:to-white/[0.05] sm:max-w-44 lg:max-w-56">
                 <SearchIcon className="h-4 w-4 shrink-0 text-neutral-500 dark:text-neutral-400" />
                 <input
                   type="search"
