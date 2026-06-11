@@ -24,7 +24,7 @@ import { ListenButton } from "./listen-button";
 
 /** iOS-style glass surface used by the mobile buttons and search bar. */
 const mobileGlass =
-  "border border-black/10 bg-gradient-to-b from-white/95 to-white/65 shadow-md backdrop-blur-xl dark:border-white/[0.12] dark:from-white/[0.18] dark:to-white/[0.06]";
+  "border border-black/10 bg-gradient-to-br from-white/95 to-white/65 shadow-md backdrop-blur-xl dark:border-white/[0.12] dark:from-white/[0.18] dark:to-white/[0.06]";
 
 type NoteListItem = {
   slug: string;
@@ -315,7 +315,7 @@ export function NotesApp({ notes, children }: Props) {
             <h1 className="pb-3 pt-5 text-[34px] font-bold leading-tight">
               Folders
             </h1>
-            <ul className="rounded-2xl bg-white p-1 dark:bg-[#1c1c1e]">
+            <ul className="overflow-hidden rounded-2xl bg-white dark:bg-[#1c1c1e]">
               <li>
                 <MobileFolderRow
                   label="All Notes"
@@ -368,7 +368,7 @@ export function NotesApp({ notes, children }: Props) {
                 <h2 className="px-2 pb-1 pt-4 text-[15px] font-bold max-sm:px-1 max-sm:pb-2 max-sm:pt-6 max-sm:text-[22px]">
                   {bucket}
                 </h2>
-                <ul className="max-sm:rounded-2xl max-sm:bg-white max-sm:p-1 dark:max-sm:bg-[#1c1c1e]">
+                <ul className="max-sm:overflow-hidden max-sm:rounded-2xl max-sm:bg-white dark:max-sm:bg-[#1c1c1e]">
                   {items.map((note, i) => (
                     <li key={note.slug}>
                       <NoteRow
@@ -464,7 +464,7 @@ function MobileFolderRow({
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left active:bg-black/5 dark:active:bg-white/10"
+      className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-black/5 dark:active:bg-white/10"
     >
       <FolderIcon className="h-[22px] w-[22px] shrink-0 text-[#e0a30c]" />
       <span className="min-w-0 flex-1 truncate text-[17px]">{label}</span>
@@ -531,7 +531,7 @@ function NoteRow({
     <Link
       href={`/posts/${note.slug}`}
       className={cn(
-        "block rounded-xl px-3 py-2.5 max-sm:active:bg-black/5 dark:max-sm:active:bg-white/10",
+        "block rounded-xl px-3 py-2.5 max-sm:rounded-none max-sm:px-4 max-sm:py-3 max-sm:active:bg-black/5 dark:max-sm:active:bg-white/10",
         active
           ? "sm:bg-[#fed87a] sm:dark:bg-[#a17321]"
           : "hover:bg-black/5 dark:hover:bg-white/5",
