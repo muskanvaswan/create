@@ -196,57 +196,83 @@ export function NotesApp({ notes, children }: Props) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Toolbar */}
-        <header className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-black/10 px-3 dark:border-white/10 sm:px-4">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className={cn(sidebarHidden ? "flex" : "lg:hidden")}>
-              <TrafficLights />
-            </span>
-            {sidebarHidden && sidebarToggle}
-            <div className="min-w-0">
-              <p className="truncate text-[15px] font-semibold leading-tight">
-                {folder ?? "All Notes"}
-              </p>
-              <p className="text-xs leading-tight text-neutral-500 dark:text-neutral-400">
-                {visible.length} {visible.length === 1 ? "note" : "notes"}
-              </p>
+        <header className="flex h-14 shrink-0 items-center border-b border-black/10 dark:border-white/10">
+          {/* Notes list header part */}
+          <div
+            className={cn(
+              "h-full shrink-0 items-center border-r border-black/10 dark:border-white/10",
+              isNoteOpen ? "hidden sm:flex sm:w-72 lg:w-80" : "flex w-full sm:w-72 lg:w-80",
+              "px-3 sm:px-4"
+            )}
+          >
+            <div className="flex flex-1 items-center justify-between min-w-0">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className={cn(sidebarHidden ? "flex" : "lg:hidden")}>
+                  <TrafficLights />
+                </span>
+                {sidebarHidden && sidebarToggle}
+                <div className="min-w-0">
+                  <p className="truncate text-[15px] font-semibold leading-tight">
+                    {folder ?? "All Notes"}
+                  </p>
+                  <p className="text-xs leading-tight text-neutral-500 dark:text-neutral-400">
+                    {visible.length} {visible.length === 1 ? "note" : "notes"}
+                  </p>
+                </div>
+              </div>
+              <Pill className="hidden sm:flex">
+                <DisabledIcon>
+                  <MoreIcon />
+                </DisabledIcon>
+              </Pill>
             </div>
-            <Pill className="hidden sm:flex">
-              <DisabledIcon>
-                <MoreIcon />
-              </DisabledIcon>
-            </Pill>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Pill className="hidden md:flex">
-              <DisabledIcon>
-                <span className="text-[15px] font-medium leading-none">Aa</span>
-              </DisabledIcon>
-              <DisabledIcon>
-                <ChecklistIcon />
-              </DisabledIcon>
-              <DisabledIcon>
-                <TableIcon />
-              </DisabledIcon>
-              <DisabledIcon>
-                <PaperclipIcon />
-              </DisabledIcon>
-            </Pill>
-            <Pill>
-              <ShareButton title={activeNote?.title ?? "Notes"} />
-            </Pill>
-          </div>
+          {/* Editor header part */}
+          <div
+            className={cn(
+              "h-full flex-grow grid grid-cols-[1fr_auto_1fr] items-center px-3 sm:px-4",
+              isNoteOpen ? "grid" : "hidden sm:grid"
+            )}
+          >
+            {/* Left section: empty/placeholder (matches compose button alignment) */}
+            <div className="flex justify-start" />
 
-          <label className="flex h-9 w-full max-w-32 items-center gap-2 justify-self-end rounded-full border border-black/10 bg-gradient-to-b from-white/80 to-white/40 px-3 shadow-md dark:border-white/15 dark:from-white/[0.12] dark:to-white/[0.05] sm:max-w-44 lg:max-w-56">
-            <SearchIcon className="h-4 w-4 shrink-0 text-neutral-500 dark:text-neutral-400" />
-            <input
-              type="search"
-              placeholder="Search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="w-full bg-transparent text-sm outline-none placeholder:text-neutral-500 dark:placeholder:text-neutral-400"
-            />
-          </label>
+            {/* Middle section: Formatting icons */}
+            <div className="flex justify-center">
+              <Pill className="hidden md:flex">
+                <DisabledIcon>
+                  <span className="text-[15px] font-medium leading-none">Aa</span>
+                </DisabledIcon>
+                <DisabledIcon>
+                  <ChecklistIcon />
+                </DisabledIcon>
+                <DisabledIcon>
+                  <TableIcon />
+                </DisabledIcon>
+                <DisabledIcon>
+                  <PaperclipIcon />
+                </DisabledIcon>
+              </Pill>
+            </div>
+
+            {/* Right section: Share, Search Bar */}
+            <div className="flex items-center justify-end gap-2">
+              <Pill>
+                <ShareButton title={activeNote?.title ?? "Notes"} />
+              </Pill>
+              <label className="flex h-9 w-full max-w-32 items-center gap-2 rounded-full border border-black/10 bg-gradient-to-b from-white/80 to-white/40 px-3 shadow-md dark:border-white/15 dark:from-white/[0.12] dark:to-white/[0.05] sm:max-w-44 lg:max-w-56">
+                <SearchIcon className="h-4 w-4 shrink-0 text-neutral-500 dark:text-neutral-400" />
+                <input
+                  type="search"
+                  placeholder="Search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="w-full bg-transparent text-sm outline-none placeholder:text-neutral-500 dark:placeholder:text-neutral-400"
+                />
+              </label>
+            </div>
+          </div>
         </header>
 
         <div className="flex min-h-0 flex-1">

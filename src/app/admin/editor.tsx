@@ -459,128 +459,155 @@ export function Editor({ initialNotes, initialFolders }: Props) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Toolbar */}
-        <header className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-black/10 px-3 dark:border-white/10 sm:px-4">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className={cn(sidebarHidden ? "flex" : "lg:hidden")}>
-              <TrafficLights />
-            </span>
-            {sidebarHidden && sidebarToggle}
-            <div className="min-w-0">
-              <p className="truncate text-[15px] font-semibold leading-tight">
-                {folder ?? "All Notes"}
-              </p>
-              <p className="text-xs leading-tight text-neutral-500 dark:text-neutral-400">
-                {visible.length} {visible.length === 1 ? "note" : "notes"}
-              </p>
-            </div>
-            <span className="relative hidden sm:block">
-              <Pill>
-                <ToolbarButton
-                  label="More"
-                  onClick={() => setMoreOpen((v) => !v)}
-                >
-                  <MoreIcon />
-                </ToolbarButton>
-              </Pill>
-              {moreOpen && (
-                <span className="absolute left-0 top-full z-10 mt-1.5 block w-44 rounded-xl border border-black/10 bg-white/95 py-1 shadow-xl backdrop-blur dark:border-white/15 dark:bg-[#2a2a2a]/95">
-                  <button
-                    onClick={removeNote}
-                    disabled={!openNote}
-                    className="block w-full px-4 py-1.5 text-left text-sm text-red-600 hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-400 dark:hover:bg-white/5"
-                  >
-                    Delete Note
-                  </button>
-                  <button
-                    onClick={logout}
-                    className="block w-full px-4 py-1.5 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5"
-                  >
-                    Lock Editor
-                  </button>
+        <header className="flex h-14 shrink-0 items-center border-b border-black/10 dark:border-white/10">
+          {/* Notes list header part */}
+          <div
+            className={cn(
+              "h-full shrink-0 items-center border-r border-black/10 dark:border-white/10",
+              isOpen ? "hidden sm:flex sm:w-72 lg:w-80" : "flex w-full sm:w-72 lg:w-80",
+              "px-3 sm:px-4"
+            )}
+          >
+            <div className="flex flex-1 items-center justify-between min-w-0">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className={cn(sidebarHidden ? "flex" : "lg:hidden")}>
+                  <TrafficLights />
                 </span>
-              )}
-            </span>
+                {sidebarHidden && sidebarToggle}
+                <div className="min-w-0">
+                  <p className="truncate text-[15px] font-semibold leading-tight">
+                    {folder ?? "All Notes"}
+                  </p>
+                  <p className="text-xs leading-tight text-neutral-500 dark:text-neutral-400">
+                    {visible.length} {visible.length === 1 ? "note" : "notes"}
+                  </p>
+                </div>
+              </div>
+              <span className="relative hidden sm:block">
+                <Pill>
+                  <ToolbarButton
+                    label="More"
+                    onClick={() => setMoreOpen((v) => !v)}
+                  >
+                    <MoreIcon />
+                  </ToolbarButton>
+                </Pill>
+                {moreOpen && (
+                  <span className="absolute right-0 top-full z-10 mt-1.5 block w-44 rounded-xl border border-black/10 bg-white/95 py-1 shadow-xl backdrop-blur dark:border-white/15 dark:bg-[#2a2a2a]/95">
+                    <button
+                      onClick={removeNote}
+                      disabled={!openNote}
+                      className="block w-full px-4 py-1.5 text-left text-sm text-red-600 hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-400 dark:hover:bg-white/5"
+                    >
+                      Delete Note
+                    </button>
+                    <button
+                      onClick={logout}
+                      className="block w-full px-4 py-1.5 text-left text-sm hover:bg-black/5 dark:hover:bg-white/5"
+                    >
+                      Lock Editor
+                    </button>
+                  </span>
+                )}
+              </span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Pill className="hidden sm:flex">
-              <ToolbarButton label="New note" onClick={openNew}>
-                <ComposeIcon />
-              </ToolbarButton>
-            </Pill>
-            <span className="relative hidden md:block">
-              <Pill>
-                <ToolbarButton
-                  label="Text format"
-                  onClick={() => {
-                    setFormatState(readFormatState());
-                    setFormatOpen((v) => !v);
-                  }}
-                  disabled={!isOpen}
-                >
-                  <span className="text-[15px] font-medium leading-none">
-                    Aa
-                  </span>
-                </ToolbarButton>
-                <ToolbarButton
-                  label="Checklist"
-                  onClick={() => exec("insertHTML", CHECKLIST_HTML)}
-                  disabled={!isOpen}
-                >
-                  <ChecklistIcon />
-                </ToolbarButton>
-                <ToolbarButton
-                  label="Table"
-                  onClick={() => exec("insertHTML", TABLE_HTML)}
-                  disabled={!isOpen}
-                >
-                  <TableIcon />
-                </ToolbarButton>
-                <ToolbarButton
-                  label="Attach file"
-                  onClick={() => {
-                    rememberSelection();
-                    fileRef.current?.click();
-                  }}
-                  disabled={!isOpen}
-                >
-                  <PaperclipIcon />
+          {/* Editor header part */}
+          <div
+            className={cn(
+              "h-full flex-grow grid grid-cols-[1fr_auto_1fr] items-center px-3 sm:px-4",
+              isOpen ? "grid" : "hidden sm:grid"
+            )}
+          >
+            {/* Left section: New Note button */}
+            <div className="flex justify-start">
+              <Pill className="hidden sm:flex">
+                <ToolbarButton label="New note" onClick={openNew}>
+                  <ComposeIcon />
                 </ToolbarButton>
               </Pill>
-              {formatOpen && formatState && (
-                <FormatMenu
-                  state={formatState}
-                  onInline={(command) => exec(command)}
-                  onBlock={(tag) => exec("formatBlock", tag)}
-                  onList={(command) => exec(command)}
-                  onClose={() => setFormatOpen(false)}
-                />
-              )}
-            </span>
-            <Pill className="hidden md:flex">
-              <ToolbarButton label="Share" onClick={share} disabled={!openNote}>
-                <ShareIcon />
-              </ToolbarButton>
-            </Pill>
-            <button
-              onClick={save}
-              disabled={!isOpen || saving || !dirty}
-              className="rounded-full bg-[#e0a30c] px-5 py-1.5 text-sm font-semibold text-white shadow-md hover:bg-[#c89209] disabled:opacity-40 dark:bg-[#a17321] dark:hover:bg-[#b5832a]"
-            >
-              {saving ? "Saving..." : "Save"}
-            </button>
-          </div>
+            </div>
 
-          <label className="flex h-9 w-full max-w-32 items-center gap-2 justify-self-end rounded-full border border-black/10 bg-gradient-to-b from-white/80 to-white/40 px-3 shadow-md dark:border-white/15 dark:from-white/[0.12] dark:to-white/[0.05] sm:max-w-44 lg:max-w-56">
-            <SearchIcon className="h-4 w-4 shrink-0 text-neutral-500 dark:text-neutral-400" />
-            <input
-              type="search"
-              placeholder="Search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="w-full bg-transparent text-sm outline-none placeholder:text-neutral-500 dark:placeholder:text-neutral-400"
-            />
-          </label>
+            {/* Middle section: Formatting tools */}
+            <div className="flex justify-center">
+              <span className="relative hidden md:block">
+                <Pill>
+                  <ToolbarButton
+                    label="Text format"
+                    onClick={() => {
+                      setFormatState(readFormatState());
+                      setFormatOpen((v) => !v);
+                    }}
+                    disabled={!isOpen}
+                  >
+                    <span className="text-[15px] font-medium leading-none">
+                      Aa
+                    </span>
+                  </ToolbarButton>
+                  <ToolbarButton
+                    label="Checklist"
+                    onClick={() => exec("insertHTML", CHECKLIST_HTML)}
+                    disabled={!isOpen}
+                  >
+                    <ChecklistIcon />
+                  </ToolbarButton>
+                  <ToolbarButton
+                    label="Table"
+                    onClick={() => exec("insertHTML", TABLE_HTML)}
+                    disabled={!isOpen}
+                  >
+                    <TableIcon />
+                  </ToolbarButton>
+                  <ToolbarButton
+                    label="Attach file"
+                    onClick={() => {
+                      rememberSelection();
+                      fileRef.current?.click();
+                    }}
+                    disabled={!isOpen}
+                  >
+                    <PaperclipIcon />
+                  </ToolbarButton>
+                </Pill>
+                {formatOpen && formatState && (
+                  <FormatMenu
+                    state={formatState}
+                    onInline={(command) => exec(command)}
+                    onBlock={(tag) => exec("formatBlock", tag)}
+                    onList={(command) => exec(command)}
+                    onClose={() => setFormatOpen(false)}
+                  />
+                )}
+              </span>
+            </div>
+
+            {/* Right section: Share, Save, Search Bar */}
+            <div className="flex items-center justify-end gap-2">
+              <Pill className="hidden md:flex">
+                <ToolbarButton label="Share" onClick={share} disabled={!openNote}>
+                  <ShareIcon />
+                </ToolbarButton>
+              </Pill>
+              <button
+                onClick={save}
+                disabled={!isOpen || saving || !dirty}
+                className="rounded-full bg-[#e0a30c] px-5 py-1.5 text-sm font-semibold text-white shadow-md hover:bg-[#c89209] disabled:opacity-40 dark:bg-[#a17321] dark:hover:bg-[#b5832a]"
+              >
+                {saving ? "Saving..." : "Save"}
+              </button>
+              <label className="flex h-9 w-full max-w-32 items-center gap-2 rounded-full border border-black/10 bg-gradient-to-b from-white/80 to-white/40 px-3 shadow-md dark:border-white/15 dark:from-white/[0.12] dark:to-white/[0.05] sm:max-w-44 lg:max-w-56">
+                <SearchIcon className="h-4 w-4 shrink-0 text-neutral-500 dark:text-neutral-400" />
+                <input
+                  type="search"
+                  placeholder="Search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="w-full bg-transparent text-sm outline-none placeholder:text-neutral-500 dark:placeholder:text-neutral-400"
+                />
+              </label>
+            </div>
+          </div>
         </header>
 
         <input
