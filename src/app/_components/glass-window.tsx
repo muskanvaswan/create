@@ -196,8 +196,9 @@ export function GlassWindow({ children }: { children: React.ReactNode }) {
     const activeScrollbars = new Map<HTMLElement, NodeJS.Timeout>();
 
     const handleScroll = (e: Event) => {
-      const target = e.target as HTMLElement;
-      if (!target || target === document || target === window.document.documentElement) return;
+      const target = e.target;
+      if (!target || !(target instanceof HTMLElement)) return;
+      if (target === window.document.documentElement) return;
 
       target.classList.add("is-scrolling");
 
