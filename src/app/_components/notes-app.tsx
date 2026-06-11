@@ -3,7 +3,7 @@
 import cn from "classnames";
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
   CheckIcon,
@@ -109,9 +109,28 @@ function ShareButton({ title }: { title: string }) {
 
 export function NotesApp({ notes, children }: Props) {
   const pathname = usePathname();
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [folder, setFolder] = useState<string | null>(null);
   const [sidebarHidden, setSidebarHidden] = useState(false);
+
+  const changeFolder = (newFolder: string | null) => {
+    setFolder(newFolder);
+    const newVisible = notes.filter((note) => {
+      if (newFolder && note.folder !== newFolder) return false;
+      const q = query.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        note.title.toLowerCase().includes(q) ||
+        note.excerpt.toLowerCase().includes(q)
+      );
+    });
+    if (newVisible.length > 0) {
+      router.push(`/posts/${newVisible[0].slug}`);
+    } else {
+      router.push("/");
+    }
+  };
 
   const isNoteOpen = pathname.startsWith("/posts/");
   const now = useMemo(() => new Date(), []);
@@ -153,9 +172,9 @@ export function NotesApp({ notes, children }: Props) {
     <button
       onClick={() => setSidebarHidden((hidden) => !hidden)}
       title={sidebarHidden ? "Show sidebar" : "Hide sidebar"}
-      className="hidden h-7 w-9 items-center justify-center text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white lg:flex"
+      className="hidden h-8 w-9 items-center justify-center rounded-md text-neutral-500 hover:bg-black/5 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-white/5 dark:hover:text-white lg:flex"
     >
-      <SidebarIcon />
+      <SidebarIcon className="h-[18px] w-[18px]" />
     </button>
   );
 
@@ -163,42 +182,44 @@ export function NotesApp({ notes, children }: Props) {
     <div className="flex h-full">
       {/* Folders pane */}
       {!sidebarHidden && (
-        <aside className="hidden w-56 shrink-0 flex-col border-r border-black/10 bg-white/30 dark:border-white/10 dark:bg-white/[0.03] lg:flex">
-          <div className="flex h-14 shrink-0 items-center justify-between px-4">
-            <TrafficLights />
-            {sidebarToggle}
-          </div>
-          <nav className="flex-1 overflow-y-auto px-3 pb-4">
-            <p className="px-2 pb-1.5 text-xs font-semibold text-neutral-500 dark:text-neutral-400">
-              Folders
-            </p>
-            <ul className="space-y-0.5">
-              <li>
-                <FolderRow
-                  label="All Notes"
-                  count={notes.length}
-                  active={folder === null}
-                  onClick={() => setFolder(null)}
-                />
-              </li>
-              {folders.map(([name, count]) => (
-                <li key={name}>
+        <div className="hidden w-56 shrink-0 flex-col bg-white/40 dark:bg-white/[0.02] lg:flex">
+          <aside className="flex-grow flex flex-col my-2 ml-2 mr-0 rounded-2xl border border-black/[0.18] dark:border-white/[0.15] bg-gradient-to-b from-white/10 to-transparent backdrop-blur-md dark:from-white/[0.02] dark:to-transparent shadow-lg">
+            <div className="flex h-14 shrink-0 items-center justify-between px-4">
+              <TrafficLights />
+              {sidebarToggle}
+            </div>
+            <nav className="flex-1 overflow-y-auto px-2 pb-4">
+              <p className="px-2.5 pb-2 text-[11px] font-bold uppercase tracking-wider text-neutral-500/80 dark:text-neutral-400/50">
+                Folders
+              </p>
+              <ul className="space-y-0.5">
+                <li>
                   <FolderRow
-                    label={name}
-                    count={count}
-                    active={folder === name}
-                    onClick={() => setFolder(name)}
+                    label="All Notes"
+                    count={notes.length}
+                    active={folder === null}
+                    onClick={() => changeFolder(null)}
                   />
                 </li>
-              ))}
-            </ul>
-          </nav>
-        </aside>
+                {folders.map(([name, count]) => (
+                  <li key={name}>
+                    <FolderRow
+                      label={name}
+                      count={count}
+                      active={folder === name}
+                      onClick={() => changeFolder(name)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          </aside>
+        </div>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Toolbar */}
-        <header className="flex h-14 shrink-0 items-center border-b border-black/10 dark:border-white/10">
+        <header className="flex h-14 shrink-0 items-center border-b border-black/10 dark:border-white/10 bg-white/40 dark:bg-white/[0.02]">
           {/* Notes list header part */}
           <div
             className={cn(
@@ -303,6 +324,7 @@ export function NotesApp({ notes, children }: Props) {
                         note={note}
                         now={now}
                         active={note.slug === activeSlug}
+                        showFolder={folder === null}
                       />
                       {i < items.length - 1 && (
                         <div className="mx-3 h-px bg-black/5 dark:bg-white/5" />
@@ -318,7 +340,7 @@ export function NotesApp({ notes, children }: Props) {
               </p>
             )}
           </aside>
-
+ 
           <main className="min-w-0 flex-1 overflow-y-auto bg-white/80 dark:bg-[#1e1e1e]/80">
             {children}
           </main>
@@ -327,7 +349,7 @@ export function NotesApp({ notes, children }: Props) {
     </div>
   );
 }
-
+ 
 function FolderRow({
   label,
   count,
@@ -343,29 +365,41 @@ function FolderRow({
     <button
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[14px]",
+        "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13.5px] transition-colors duration-150",
         active
-          ? "bg-black/10 font-medium dark:bg-white/10"
-          : "hover:bg-black/5 dark:hover:bg-white/5",
+          ? "bg-[#ecae12] text-white font-semibold"
+          : "text-neutral-700 dark:text-neutral-200 hover:bg-black/5 dark:hover:bg-white/5",
       )}
     >
-      <FolderIcon className="h-[18px] w-[18px] shrink-0 text-[#d9a33c]" />
+      <FolderIcon
+        className={cn(
+          "h-[18px] w-[18px] shrink-0",
+          active ? "text-white" : "text-neutral-500 dark:text-neutral-400"
+        )}
+      />
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      <span className="text-[13px] text-neutral-500 dark:text-neutral-400">
+      <span
+        className={cn(
+          "text-[13px] font-medium tabular-nums",
+          active ? "text-white/80" : "text-neutral-400 dark:text-neutral-500"
+        )}
+      >
         {count}
       </span>
     </button>
   );
 }
-
+ 
 function NoteRow({
   note,
   now,
   active,
+  showFolder,
 }: {
   note: NoteListItem;
   now: Date;
   active: boolean;
+  showFolder: boolean;
 }) {
   return (
     <Link
@@ -393,17 +427,19 @@ function NoteRow({
         </span>
         {note.excerpt}
       </p>
-      <p
-        className={cn(
-          "mt-1 flex items-center gap-1.5 text-[13px]",
-          active
-            ? "text-neutral-700 dark:text-neutral-200"
-            : "text-neutral-500 dark:text-neutral-400",
-        )}
-      >
-        <FolderIcon className="h-[14px] w-[14px]" />
-        {note.folder}
-      </p>
+      {showFolder && (
+        <p
+          className={cn(
+            "mt-1 flex items-center gap-1.5 text-[13px]",
+            active
+              ? "text-neutral-700 dark:text-neutral-200"
+              : "text-neutral-500 dark:text-neutral-400",
+          )}
+        >
+          <FolderIcon className="h-[14px] w-[14px]" />
+          {note.folder}
+        </p>
+      )}
     </Link>
   );
 }
