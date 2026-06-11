@@ -193,8 +193,8 @@ export function NotesApp({ notes, children }: Props) {
     <div className="relative flex h-full">
       {/* Folders pane */}
       {!sidebarHidden && (
-        <div className="hidden w-56 shrink-0 flex-col bg-white/25 dark:bg-white/[0.03] lg:flex">
-          <aside className="flex-grow flex flex-col my-2 ml-2 mr-0 rounded-2xl border border-black/[0.18] dark:border-white/[0.15] bg-gradient-to-b from-white/20 to-transparent backdrop-blur-md dark:from-white/[0.06] dark:to-transparent shadow-lg">
+        <div className="hidden w-56 shrink-0 flex-col bg-white/75 dark:bg-[#211d29]/90 lg:flex">
+          <aside className="flex-grow flex flex-col my-2 ml-2 mr-0 rounded-2xl border border-black/[0.12] dark:border-white/[0.12] bg-gradient-to-bl from-white/50 via-transparent to-transparent dark:from-white/[0.09] dark:via-transparent dark:to-transparent backdrop-blur-md shadow-lg">
             <div className="flex h-14 shrink-0 items-center justify-between px-4">
               <TrafficLights />
               {sidebarToggle}
