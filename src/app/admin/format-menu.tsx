@@ -146,19 +146,6 @@ export function FormatMenu({ state, onInline, onBlock, onList, onClose }: Props)
           >
             <span className="line-through">S</span>
           </InlineButton>
-          <span className="mx-1 h-5 w-px bg-black/10 dark:bg-white/15" />
-          <span
-            className="flex h-8 w-9 cursor-not-allowed items-center justify-center text-[15px] opacity-40"
-            title="Highlight (not available)"
-          >
-            ✎
-          </span>
-          <span
-            className="flex h-8 w-9 cursor-not-allowed items-center justify-center opacity-40"
-            title="Text color (not available)"
-          >
-            <span className="h-3.5 w-3.5 rounded-full bg-purple-500" />
-          </span>
         </span>
         <span className="block border-t border-black/10 dark:border-white/10" />
         <span className="block py-1">
