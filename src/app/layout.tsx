@@ -15,6 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <link rel="icon" type="image/svg+xml" href="/favicon/favicon.svg" />
         <link
           rel="apple-touch-icon"
           sizes="180x180"
@@ -33,7 +34,7 @@ export default function RootLayout({
           href="/favicon/favicon-16x16.png"
         />
         <link rel="shortcut icon" href="/favicon/favicon.ico" />
-        <meta name="theme-color" content="#1e1e1e" />
+        <meta name="theme-color" content="#000000" />
       </head>
       <body className="macos-wallpaper h-dvh overflow-hidden font-sans antialiased text-neutral-900 dark:text-neutral-100">
         {children}
