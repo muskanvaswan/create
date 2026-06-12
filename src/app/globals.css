@@ -21,7 +21,7 @@
 
   /* Desktop window backdrop (see public/assets/wallpaper.svg). */
   .macos-wallpaper {
-    background-color: #b9aee8;
+    background-color: #000000;
     background-image: url("/assets/wallpaper.svg");
     background-size: cover;
     background-position: center;
