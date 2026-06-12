@@ -30,7 +30,13 @@
 }
 
 .markdown blockquote {
-  @apply border-l-2 border-neutral-300 pl-4 text-neutral-500 dark:border-neutral-600 dark:text-neutral-400;
+  @apply border-l-[3px] border-[#e0a30c] bg-[#e0a30c]/[0.07] py-2 pl-4 pr-3 italic text-neutral-600 rounded-r-lg dark:border-[#e0a30c]/70 dark:bg-[#e0a30c]/[0.09] dark:text-neutral-300;
+}
+
+/* Strip inline color/highlight applied by execCommand — color is not supported */
+.markdown span[style] {
+  color: inherit !important;
+  background-color: transparent !important;
 }
 
 .markdown code {
