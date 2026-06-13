@@ -21,7 +21,7 @@ function getPlainText(markdown: string): string {
     .trim();
 }
 
-function ellipsise(text: string, maxLength = 280): string {
+function ellipsise(text: string, maxLength = 500): string {
   if (text.length <= maxLength) return text;
   const truncated = text.slice(0, maxLength);
   const lastSpace = truncated.lastIndexOf(" ");
