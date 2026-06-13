@@ -25,10 +25,16 @@ order:
    safe no-op**: capture silently drops, the `/polish` dashboard shows a notice,
    and the host app is never taken down.
 
-> The Postgres adapter is the production TODO referenced below. The interface
-> (`storeReady`, `insertEvents`, the query helpers) is already backend-agnostic,
-> so adding it is an isolated change — no caller has to know which backend is
-> live.
+> Both backends sit behind one async interface (`storeReady`, `insertEvents`,
+> the `query` helper), so no caller knows which is live. Aggregation SQL is
+> written in a portable subset — `?` placeholders (rewritten to `$1, $2, …` for
+> Postgres) and `SUM(CASE WHEN … THEN 1 ELSE 0 END)` rather than SQLite's
+> `SUM(x = y)` — so the same queries run on either backend.
+>
+> The Postgres backend uses the [`pg`](https://www.npmjs.com/package/pg) driver
+> and requires the Node.js runtime (the ingest route and dashboard already pin
+> `runtime = "nodejs"`). It connects over TLS with `rejectUnauthorized: false`,
+> which every managed host (Neon, Supabase, RDS) needs.
 
 ---
 
@@ -91,21 +97,21 @@ CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id);
 
 ---
 
-## Production — Option B: Turso (edge SQLite)
+## Production — Option B: Turso (edge SQLite) — not yet wired up
 
-If you prefer to keep SQLite semantics at the edge, use
-[Turso](https://turso.tech) (libSQL). Good when your app runs close to users and
-you want low-latency reads.
+> **Not implemented.** `POLISH_DATABASE_URL` currently selects the **Postgres**
+> backend only (via the `pg` driver). A `libsql://` URL will fail to connect and
+> the store will latch to no-op. The libSQL adapter is a follow-up; until then,
+> use Option A. The interface is backend-agnostic, so adding it is isolated to
+> `openPostgres`'s sibling in `store.ts`.
+
+If you prefer to keep SQLite semantics at the edge, the plan is to use
+[Turso](https://turso.tech) (libSQL):
 
 ```bash
 turso db create polish
 turso db show polish --url        # → POLISH_DATABASE_URL (libsql://...)
 turso db tokens create polish     # → POLISH_DATABASE_AUTH_TOKEN
-```
-
-```bash
-POLISH_DATABASE_URL=libsql://polish-you.turso.io
-POLISH_DATABASE_AUTH_TOKEN=...
 ```
 
 The same `events` schema applies (SQLite types, as in `store.ts`).

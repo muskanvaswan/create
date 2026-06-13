@@ -4,8 +4,12 @@
  * Read-side queries over the events table. These power the `/polish` dashboard
  * and, later, feed the Stage-2 synthesis prompt. Everything degrades to empty
  * results when the store is in no-op mode, so the dashboard always renders.
+ *
+ * SQL here is written in a portable subset that runs on both backends: `?`
+ * placeholders (the store rewrites them per dialect) and boolean aggregates
+ * spelled `SUM(CASE WHEN … THEN 1 ELSE 0 END)` rather than SQLite's `SUM(x = y)`.
  */
-import { db_ } from "./store";
+import { parseMeta, query, storeReady } from "./store";
 
 export interface OverviewStats {
   ready: boolean;
@@ -54,14 +58,19 @@ export interface FrictionElement {
   score: number;
 }
 
+/** Coerce a DB cell to a finite number. Tolerates pg's stringified bigints. */
 function num(row: Record<string, unknown> | undefined, key: string): number {
   const v = row?.[key];
-  return typeof v === "number" ? v : 0;
+  if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+  if (typeof v === "string") {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
 }
 
-export function getOverview(): OverviewStats {
-  const db = db_();
-  if (!db) {
+export async function getOverview(): Promise<OverviewStats> {
+  if (!(await storeReady())) {
     return {
       ready: false,
       totalEvents: 0,
@@ -72,18 +81,16 @@ export function getOverview(): OverviewStats {
       jsErrors: 0,
     };
   }
-  const row = db
-    .prepare(
-      `SELECT
-         COUNT(*)                                          AS totalEvents,
-         COUNT(DISTINCT session_id)                        AS sessions,
-         SUM(type = 'page_view')                           AS pageViews,
-         SUM(type = 'rage_click')                          AS rageClicks,
-         SUM(type = 'dead_click')                          AS deadClicks,
-         SUM(type = 'js_error')                            AS jsErrors
-       FROM events`,
-    )
-    .get() as Record<string, unknown>;
+  const [row] = await query(
+    `SELECT
+       COUNT(*)                                                      AS "totalEvents",
+       COUNT(DISTINCT session_id)                                    AS sessions,
+       SUM(CASE WHEN type = 'page_view'  THEN 1 ELSE 0 END)          AS "pageViews",
+       SUM(CASE WHEN type = 'rage_click' THEN 1 ELSE 0 END)          AS "rageClicks",
+       SUM(CASE WHEN type = 'dead_click' THEN 1 ELSE 0 END)          AS "deadClicks",
+       SUM(CASE WHEN type = 'js_error'   THEN 1 ELSE 0 END)          AS "jsErrors"
+     FROM events`,
+  );
 
   return {
     ready: true,
@@ -101,23 +108,19 @@ export function getOverview(): OverviewStats {
  * the strongest frustration signal, then dead clicks and errors; shallow
  * scroll (content not reached) contributes mildly.
  */
-export function getFrictionPages(limit = 5): FrictionPage[] {
-  const db = db_();
-  if (!db) return [];
-  const rows = db
-    .prepare(
-      `SELECT
-         path,
-         COUNT(DISTINCT session_id)                       AS sessions,
-         SUM(type = 'page_view')                          AS pageViews,
-         SUM(type = 'rage_click')                         AS rageClicks,
-         SUM(type = 'dead_click')                         AS deadClicks,
-         SUM(type = 'js_error')                           AS jsErrors,
-         AVG(CASE WHEN type = 'scroll_depth' THEN value END) AS avgScrollDepth
-       FROM events
-       GROUP BY path`,
-    )
-    .all() as Array<Record<string, unknown>>;
+export async function getFrictionPages(limit = 5): Promise<FrictionPage[]> {
+  const rows = await query(
+    `SELECT
+       path,
+       COUNT(DISTINCT session_id)                                     AS sessions,
+       SUM(CASE WHEN type = 'page_view'  THEN 1 ELSE 0 END)           AS "pageViews",
+       SUM(CASE WHEN type = 'rage_click' THEN 1 ELSE 0 END)           AS "rageClicks",
+       SUM(CASE WHEN type = 'dead_click' THEN 1 ELSE 0 END)           AS "deadClicks",
+       SUM(CASE WHEN type = 'js_error'   THEN 1 ELSE 0 END)           AS "jsErrors",
+       AVG(CASE WHEN type = 'scroll_depth' THEN value END)            AS "avgScrollDepth"
+     FROM events
+     GROUP BY path`,
+  );
 
   return rows
     .map((r): FrictionPage => {
@@ -125,7 +128,8 @@ export function getFrictionPages(limit = 5): FrictionPage[] {
       const deadClicks = num(r, "deadClicks");
       const jsErrors = num(r, "jsErrors");
       const avg = r.avgScrollDepth;
-      const avgScrollDepth = typeof avg === "number" ? Math.round(avg) : null;
+      const avgNum = typeof avg === "number" ? avg : typeof avg === "string" ? Number(avg) : NaN;
+      const avgScrollDepth = Number.isFinite(avgNum) ? Math.round(avgNum) : null;
       const shallowPenalty =
         avgScrollDepth !== null && avgScrollDepth < 50 ? (50 - avgScrollDepth) / 25 : 0;
       const score =
@@ -152,25 +156,21 @@ export function getFrictionPages(limit = 5): FrictionPage[] {
  * Stage 2 synthesis possible: it tells you *which UI element* the friction is
  * on, not just which page.
  */
-export function getFrictionElements(limit = 12): FrictionElement[] {
-  const db = db_();
-  if (!db) return [];
-  const rows = db
-    .prepare(
-      `SELECT
-         COALESCE(component, selector, '(unknown)')                  AS label,
-         MAX(component IS NOT NULL)                                   AS isComponent,
-         MAX(selector)                                               AS selector,
-         MAX(text)                                                   AS sampleText,
-         COUNT(DISTINCT path)                                        AS pages,
-         SUM(type = 'click')                                         AS clicks,
-         SUM(type = 'rage_click')                                    AS rageClicks,
-         SUM(type = 'dead_click')                                    AS deadClicks
-       FROM events
-       WHERE type IN ('click', 'rage_click', 'dead_click')
-       GROUP BY label`,
-    )
-    .all() as Array<Record<string, unknown>>;
+export async function getFrictionElements(limit = 12): Promise<FrictionElement[]> {
+  const rows = await query(
+    `SELECT
+       COALESCE(component, selector, '(unknown)')                       AS label,
+       MAX(CASE WHEN component IS NOT NULL THEN 1 ELSE 0 END)           AS "isComponent",
+       MAX(selector)                                                    AS selector,
+       MAX(text)                                                        AS "sampleText",
+       COUNT(DISTINCT path)                                             AS pages,
+       SUM(CASE WHEN type = 'click'      THEN 1 ELSE 0 END)             AS clicks,
+       SUM(CASE WHEN type = 'rage_click' THEN 1 ELSE 0 END)             AS "rageClicks",
+       SUM(CASE WHEN type = 'dead_click' THEN 1 ELSE 0 END)             AS "deadClicks"
+     FROM events
+     WHERE type IN ('click', 'rage_click', 'dead_click')
+     GROUP BY COALESCE(component, selector, '(unknown)')`,
+  );
 
   return rows
     .map((r): FrictionElement => {
@@ -194,31 +194,22 @@ export function getFrictionElements(limit = 12): FrictionElement[] {
     .slice(0, limit);
 }
 
-export function getRecentErrors(limit = 10): RecentError[] {
-  const db = db_();
-  if (!db) return [];
-  const rows = db
-    .prepare(
-      `SELECT path, component, meta, ts
-       FROM events WHERE type = 'js_error'
-       ORDER BY id DESC LIMIT ?`,
-    )
-    .all(limit) as Array<Record<string, unknown>>;
+export async function getRecentErrors(limit = 10): Promise<RecentError[]> {
+  const rows = await query(
+    `SELECT path, component, meta, ts
+     FROM events WHERE type = 'js_error'
+     ORDER BY id DESC LIMIT ?`,
+    [limit],
+  );
   return rows.map((r) => {
     let message = "Unknown error";
-    if (typeof r.meta === "string") {
-      try {
-        const m = JSON.parse(r.meta) as { message?: unknown };
-        if (typeof m.message === "string") message = m.message;
-      } catch {
-        /* ignore malformed meta */
-      }
-    }
+    const meta = parseMeta(r.meta);
+    if (meta && typeof meta.message === "string") message = meta.message;
     return {
       path: r.path as string,
       component: (r.component as string) ?? undefined,
       message,
-      ts: r.ts as number,
+      ts: num(r, "ts"),
     };
   });
 }

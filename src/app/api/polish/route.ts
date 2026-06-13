@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   }
 
   const cookieValue = req.cookies.get(defaultPolishConfig.sessionCookie)?.value;
-  const result = ingest(body, cookieValue);
+  const result = await ingest(body, cookieValue);
 
   // Always 204-style success for valid requests so the beacon never retries
   // on the client; real failures (bad payloads) return 4xx above.

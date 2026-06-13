@@ -60,7 +60,10 @@ function sanitize(raw: unknown): PolishEvent | null {
 }
 
 /** Ingest a raw request body. `cookieValue` is the session cookie's value. */
-export function ingest(body: unknown, cookieValue: string | undefined): IngestResult {
+export async function ingest(
+  body: unknown,
+  cookieValue: string | undefined,
+): Promise<IngestResult> {
   const sessionId = sessionIdFromCookie(cookieValue);
   if (!sessionId) return { ok: true, stored: 0, reason: "no_session" };
   if (!defaultPolishConfig.enabled) return { ok: true, stored: 0, reason: "disabled" };
@@ -73,6 +76,6 @@ export function ingest(body: unknown, cookieValue: string | undefined): IngestRe
     .map(sanitize)
     .filter((e): e is PolishEvent => e !== null);
 
-  const stored = insertEvents(sessionId, events);
+  const stored = await insertEvents(sessionId, events);
   return { ok: true, stored };
 }

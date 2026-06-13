@@ -1,152 +1,316 @@
 /**
  * Polish — analytics store (server only).
  *
- * Backed by SQLite via Node's built-in `node:sqlite` (Node 22+), so there is
- * zero npm dependency and no native build step. The store opens lazily and is
- * deliberately fault-tolerant: if the filesystem is read-only (e.g. Vercel's
- * serverless runtime) the open fails once, we log, and every operation becomes
- * a safe no-op. Capture must never take the host app down.
+ * Two interchangeable backends sit behind one async interface:
  *
- * Production with real traffic should point Polish at Postgres/Turso instead;
- * that swap lives behind this same interface (a future `pgStore`), selected by
- * the POLISH_DATABASE_URL env var. For Phase 1 (local validation) SQLite is it.
+ *   • SQLite via Node's built-in `node:sqlite` (Node 22+) — zero npm dependency,
+ *     no native build, used for local development by default.
+ *   • Postgres via `pg` — used in production, selected by `POLISH_DATABASE_URL`.
+ *     Most modern hosts (Vercel, Netlify) run on a read-only, ephemeral
+ *     filesystem where a local SQLite file can't persist, so real traffic must
+ *     point at a networked database. See `DATABASE.md`.
+ *
+ * The store opens lazily and is deliberately fault-tolerant: if neither backend
+ * can be opened (read-only FS, unreachable database, bad URL) it latches to a
+ * safe no-op — capture silently drops and every read returns empty — so the
+ * host app is never taken down by analytics.
+ *
+ * The interface is async because Postgres is; the SQLite backend simply resolves
+ * its synchronous results. Callers never know which backend is live.
  */
-import { DatabaseSync } from "node:sqlite";
-import { dirname, isAbsolute, join } from "node:path";
-import { mkdirSync } from "node:fs";
-
 import { defaultPolishConfig } from "../config";
 import type { PolishEvent, PolishEventRow } from "../shared/types";
 
-type DB = InstanceType<typeof DatabaseSync>;
+/**
+ * A backend-agnostic row map. Queries are written once, in a portable SQL
+ * subset, with `?` placeholders; each backend adapts them to its own dialect.
+ */
+type Row = Record<string, unknown>;
 
-/** null = not yet opened; false = open failed, stay no-op; DB = ready. */
-let db: DB | null | false = null;
+interface Backend {
+  /** Persist a batch of events for one session. Returns rows written. */
+  insert(sessionId: string, events: PolishEvent[]): Promise<number>;
+  /** Run a read query. `?` placeholders are positional, in order. */
+  query(sql: string, params?: unknown[]): Promise<Row[]>;
+}
+
+/** The columns every backend inserts, in a fixed order, for one event. */
+const INSERT_COLS =
+  "session_id, type, ts, path, selector, component, text, value, meta, received_at";
+
+/** Turn one event into its positional values, matching `INSERT_COLS`. */
+function eventValues(sessionId: string, e: PolishEvent, now: number): unknown[] {
+  return [
+    sessionId,
+    e.type,
+    e.ts,
+    e.path,
+    e.selector ?? null,
+    e.component ?? null,
+    e.text ?? null,
+    e.value ?? null,
+    e.meta ? JSON.stringify(e.meta) : null,
+    now,
+  ];
+}
+
+// ── SQLite backend ───────────────────────────────────────────────────────────
+
+import { DatabaseSync } from "node:sqlite";
+import { dirname, isAbsolute, join } from "node:path";
+import { mkdirSync } from "node:fs";
 
 function resolveDbPath(): string {
   const configured = process.env.POLISH_DB_PATH || defaultPolishConfig.databasePath;
   return isAbsolute(configured) ? configured : join(process.cwd(), configured);
 }
 
-/** Open the DB once. On failure (read-only FS, etc.) latch to no-op mode. */
-function getDb(): DB | null {
-  if (db === false) return null;
-  if (db) return db;
-  // A networked database is requested but the adapter isn't wired up yet.
-  // Don't silently fall back to an ephemeral local SQLite file in production —
-  // that would look like it's working while dropping data on each cold start.
-  // Latch to no-op with a loud, actionable message instead. See DATABASE.md.
-  if (process.env.POLISH_DATABASE_URL) {
-    console.warn(
-      "[polish] POLISH_DATABASE_URL is set but the Postgres/libSQL adapter is " +
-        "not implemented yet — capture is disabled. See src/polish/DATABASE.md.",
+function openSqlite(): Backend {
+  const path = resolveDbPath();
+  mkdirSync(dirname(path), { recursive: true });
+  const db = new DatabaseSync(path);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS events (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id  TEXT    NOT NULL,
+      type        TEXT    NOT NULL,
+      ts          INTEGER NOT NULL,
+      path        TEXT    NOT NULL,
+      selector    TEXT,
+      component   TEXT,
+      text        TEXT,
+      value       REAL,
+      meta        TEXT,
+      received_at INTEGER NOT NULL
     );
-    db = false;
-    return null;
-  }
-  try {
-    const path = resolveDbPath();
-    mkdirSync(dirname(path), { recursive: true });
-    const opened = new DatabaseSync(path);
-    opened.exec(`
-      CREATE TABLE IF NOT EXISTS events (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id  TEXT    NOT NULL,
-        type        TEXT    NOT NULL,
-        ts          INTEGER NOT NULL,
-        path        TEXT    NOT NULL,
-        selector    TEXT,
-        component   TEXT,
-        text        TEXT,
-        value       REAL,
-        meta        TEXT,
-        received_at INTEGER NOT NULL
+    CREATE INDEX IF NOT EXISTS idx_events_path ON events(path);
+    CREATE INDEX IF NOT EXISTS idx_events_type ON events(type);
+    CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id);
+  `);
+
+  return {
+    async insert(sessionId, events) {
+      if (events.length === 0) return 0;
+      const now = Date.now();
+      const stmt = db.prepare(
+        `INSERT INTO events (${INSERT_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
-      CREATE INDEX IF NOT EXISTS idx_events_path ON events(path);
-      CREATE INDEX IF NOT EXISTS idx_events_type ON events(type);
-      CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id);
-    `);
-    db = opened;
-    return db;
-  } catch (err) {
-    console.warn(
-      "[polish] analytics store unavailable, capture disabled:",
-      err instanceof Error ? err.message : err,
+      let written = 0;
+      // node:sqlite has no .transaction() helper; wrap manually for batch speed.
+      db.exec("BEGIN");
+      try {
+        for (const e of events) {
+          stmt.run(...(eventValues(sessionId, e, now) as never[]));
+          written++;
+        }
+        db.exec("COMMIT");
+      } catch (err) {
+        db.exec("ROLLBACK");
+        throw err;
+      }
+      return written;
+    },
+    async query(sql, params = []) {
+      return db.prepare(sql).all(...(params as never[])) as Row[];
+    },
+  };
+}
+
+// ── Postgres backend ─────────────────────────────────────────────────────────
+
+function openPostgres(url: string): Backend {
+  // Lazy require so the SQLite-only dev path never loads `pg`. Importing here
+  // (not at module top) also keeps the Edge bundler from tracing it needlessly.
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { Pool, types } = require("pg") as typeof import("pg");
+
+  // pg returns BIGINT (int8, OID 20) and NUMERIC (OID 1700) as strings to avoid
+  // precision loss. Our ids/counts/averages are all well within Number range,
+  // and the dashboard expects numbers, so parse them eagerly for this pool.
+  types.setTypeParser(20, (v) => (v === null ? null : parseInt(v, 10)));
+  types.setTypeParser(1700, (v) => (v === null ? null : parseFloat(v)));
+
+  const pool = new Pool({
+    connectionString: url,
+    // Serverless invocations are short-lived and each opens its own pool, so
+    // keep it tiny and let idle connections drop quickly. Use the *pooled*
+    // (pgbouncer) connection string in production — see DATABASE.md.
+    max: 3,
+    idleTimeoutMillis: 10_000,
+    // Hosted Postgres (Neon, Supabase, RDS) requires TLS; most managed
+    // certificates aren't in the default CA bundle, so don't reject them.
+    ssl: { rejectUnauthorized: false },
+  });
+
+  // Convert our portable `?` placeholders to Postgres' positional `$1, $2, …`.
+  const toPg = (sql: string) => {
+    let i = 0;
+    return sql.replace(/\?/g, () => `$${++i}`);
+  };
+
+  const ready = pool.query(`
+    CREATE TABLE IF NOT EXISTS events (
+      id          BIGSERIAL PRIMARY KEY,
+      session_id  TEXT        NOT NULL,
+      type        TEXT        NOT NULL,
+      ts          BIGINT      NOT NULL,
+      path        TEXT        NOT NULL,
+      selector    TEXT,
+      component   TEXT,
+      text        TEXT,
+      value       DOUBLE PRECISION,
+      meta        JSONB,
+      received_at BIGINT      NOT NULL
     );
-    db = false;
-    return null;
-  }
+    CREATE INDEX IF NOT EXISTS idx_events_path    ON events(path);
+    CREATE INDEX IF NOT EXISTS idx_events_type    ON events(type);
+    CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id);
+  `);
+
+  return {
+    async insert(sessionId, events) {
+      if (events.length === 0) return 0;
+      await ready;
+      const now = Date.now();
+      const cols = 10; // must match INSERT_COLS / eventValues
+      const params: unknown[] = [];
+      const tuples: string[] = [];
+      events.forEach((e, row) => {
+        const base = row * cols;
+        // meta is the 9th column (index 8) — cast its text param to jsonb.
+        const ph = Array.from({ length: cols }, (_, c) =>
+          c === 8 ? `$${base + c + 1}::jsonb` : `$${base + c + 1}`,
+        );
+        tuples.push(`(${ph.join(", ")})`);
+        params.push(...eventValues(sessionId, e, now));
+      });
+      const res = await pool.query(
+        `INSERT INTO events (${INSERT_COLS}) VALUES ${tuples.join(", ")}`,
+        params,
+      );
+      return res.rowCount ?? 0;
+    },
+    async query(sql, params = []) {
+      await ready;
+      const res = await pool.query(toPg(sql), params as unknown[]);
+      return res.rows as Row[];
+    },
+  };
+}
+
+// ── Backend selection (lazy, cached, fault-tolerant) ─────────────────────────
+
+/** undefined = not yet attempted; null = failed, stay no-op; Backend = ready. */
+let backend: Backend | null | undefined;
+/** Shared init promise so concurrent callers don't race to open the backend. */
+let initPromise: Promise<Backend | null> | null = null;
+
+async function getBackend(): Promise<Backend | null> {
+  if (backend !== undefined) return backend;
+  if (initPromise) return initPromise;
+
+  initPromise = (async () => {
+    try {
+      const url = process.env.POLISH_DATABASE_URL;
+      if (url) {
+        const pg = openPostgres(url);
+        // Force the lazy connection now so a bad URL latches to no-op loudly,
+        // instead of silently failing on the first capture in production.
+        await pg.query("SELECT 1");
+        backend = pg;
+      } else {
+        backend = openSqlite();
+      }
+    } catch (err) {
+      console.warn(
+        "[polish] analytics store unavailable, capture disabled:",
+        err instanceof Error ? err.message : err,
+      );
+      backend = null;
+    }
+    return backend;
+  })();
+
+  return initPromise;
 }
 
 /** True when events are actually being persisted (used by the dashboard). */
-export function storeReady(): boolean {
-  return getDb() !== null;
+export async function storeReady(): Promise<boolean> {
+  return (await getBackend()) !== null;
 }
 
 /** Persist a batch of events for one session. Silently drops if no store. */
-export function insertEvents(sessionId: string, events: PolishEvent[]): number {
-  const database = getDb();
-  if (!database || events.length === 0) return 0;
-  const now = Date.now();
-  const stmt = database.prepare(`
-    INSERT INTO events
-      (session_id, type, ts, path, selector, component, text, value, meta, received_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  let written = 0;
-  // node:sqlite has no .transaction() helper; wrap manually for batch speed.
-  database.exec("BEGIN");
+export async function insertEvents(
+  sessionId: string,
+  events: PolishEvent[],
+): Promise<number> {
+  const b = await getBackend();
+  if (!b || events.length === 0) return 0;
   try {
-    for (const e of events) {
-      stmt.run(
-        sessionId,
-        e.type,
-        e.ts,
-        e.path,
-        e.selector ?? null,
-        e.component ?? null,
-        e.text ?? null,
-        e.value ?? null,
-        e.meta ? JSON.stringify(e.meta) : null,
-        now,
-      );
-      written++;
-    }
-    database.exec("COMMIT");
+    return await b.insert(sessionId, events);
   } catch (err) {
-    database.exec("ROLLBACK");
-    throw err;
+    console.warn(
+      "[polish] insert failed, dropping batch:",
+      err instanceof Error ? err.message : err,
+    );
+    return 0;
   }
-  return written;
+}
+
+/**
+ * Run a portable read query, or return `[]` in no-op mode. Use `?` placeholders;
+ * each backend rewrites them to its own dialect. The aggregation layer (and the
+ * dashboard) goes through here so it never has to know which backend is live.
+ */
+export async function query(sql: string, params: unknown[] = []): Promise<Row[]> {
+  const b = await getBackend();
+  if (!b) return [];
+  try {
+    return await b.query(sql, params);
+  } catch (err) {
+    console.warn(
+      "[polish] query failed:",
+      err instanceof Error ? err.message : err,
+    );
+    return [];
+  }
 }
 
 /** Raw rows, newest first. For debugging and the queries layer. */
-export function allRows(limit = 1000): PolishEventRow[] {
-  const database = getDb();
-  if (!database) return [];
-  const rows = database
-    .prepare(`SELECT * FROM events ORDER BY id DESC LIMIT ?`)
-    .all(limit) as Array<Record<string, unknown>>;
+export async function allRows(limit = 1000): Promise<PolishEventRow[]> {
+  const rows = await query(`SELECT * FROM events ORDER BY id DESC LIMIT ?`, [limit]);
   return rows.map(deserialize);
 }
 
-/** The live query handle, for the aggregation layer. null in no-op mode. */
-export function db_(): DB | null {
-  return getDb();
-}
-
-function deserialize(row: Record<string, unknown>): PolishEventRow {
+function deserialize(row: Row): PolishEventRow {
   return {
-    id: row.id as number,
+    id: Number(row.id),
     session_id: row.session_id as string,
     type: row.type as PolishEventRow["type"],
-    ts: row.ts as number,
+    ts: Number(row.ts),
     path: row.path as string,
     selector: (row.selector as string) ?? undefined,
     component: (row.component as string) ?? undefined,
     text: (row.text as string) ?? undefined,
-    value: (row.value as number) ?? undefined,
-    meta: row.meta ? (JSON.parse(row.meta as string) as PolishEventRow["meta"]) : undefined,
-    received_at: row.received_at as number,
+    value: row.value == null ? undefined : Number(row.value),
+    meta: parseMeta(row.meta),
+    received_at: Number(row.received_at),
   };
+}
+
+/**
+ * Normalize the `meta` column across backends: SQLite stores it as a JSON
+ * string, Postgres' JSONB comes back already parsed. Accept either.
+ */
+export function parseMeta(raw: unknown): PolishEventRow["meta"] {
+  if (raw == null) return undefined;
+  if (typeof raw === "object") return raw as PolishEventRow["meta"];
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw) as PolishEventRow["meta"];
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
 }
