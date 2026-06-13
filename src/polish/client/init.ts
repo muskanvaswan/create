@@ -159,6 +159,27 @@ export function initPolish(options: InitOptions = {}): void {
     };
   };
 
+  // ---- viewport / device size ----------------------------------------------
+
+  // Coarse device buckets keyed off CSS-pixel width. Aligns with common
+  // breakpoints (Tailwind sm/lg) so categories read intuitively on the
+  // dashboard. The category is stored in `text` (a plain, portable column) so
+  // it can be grouped without per-backend JSON querying.
+  const deviceCategory = (w: number): string =>
+    w < 640 ? "mobile" : w < 1024 ? "tablet" : "desktop";
+
+  const emitViewport = () => {
+    const w = window.innerWidth || document.documentElement.clientWidth || 0;
+    const h = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (w <= 0) return;
+    push({
+      type: "viewport",
+      value: w,
+      text: deviceCategory(w),
+      meta: { w, h, dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100 },
+    });
+  };
+
   // ---- scroll depth --------------------------------------------------------
 
   const onScroll = () => {
@@ -250,6 +271,7 @@ export function initPolish(options: InitOptions = {}): void {
   observeVitals();
   setInterval(() => flush(false), cfg.flushIntervalMs);
 
-  // Initial page view for the entry route.
+  // One device/viewport sample per session, plus the initial page view.
+  emitViewport();
   push({ type: "page_view", path: currentPath });
 }
