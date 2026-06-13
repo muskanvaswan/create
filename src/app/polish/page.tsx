@@ -176,10 +176,12 @@ export default async function PolishDashboard() {
     return <PolishLogin canRegister={!hasRegisteredPasskey()} />;
   }
 
-  const overview = getOverview();
-  const friction = getFrictionPages(8);
-  const elements = getFrictionElements(12);
-  const errors = getRecentErrors(8);
+  const [overview, friction, elements, errors] = await Promise.all([
+    getOverview(),
+    getFrictionPages(8),
+    getFrictionElements(12),
+    getRecentErrors(8),
+  ]);
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10 text-white">
