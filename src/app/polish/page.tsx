@@ -7,12 +7,14 @@ import {
   getFrictionPages,
   getOverview,
   getRecentErrors,
+  getSessionJourneys,
   getTopInteractions,
   type DeviceBucket,
   type FrictionElement,
   type FrictionPage,
   type TopInteraction,
 } from "@/polish/server/queries";
+import JourneyList from "./journeys";
 import { PolishLogin } from "./login";
 
 export const runtime = "nodejs";
@@ -240,16 +242,21 @@ function Section({ title, children }: { title: React.ReactNode; children: React.
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default async function PolishDashboard() {
-  if (!(await isAuthenticated())) {
+  // Local development runs against the SQLite store with no real visitors, so a
+  // passkey just gets in the way. Skip the gate off-production; deployed builds
+  // (Vercel sets NODE_ENV=production) still require authentication.
+  const isLocalDev = process.env.NODE_ENV !== "production";
+  if (!isLocalDev && !(await isAuthenticated())) {
     return <PolishLogin canRegister={!hasRegisteredPasskey()} />;
   }
 
-  const [overview, friction, elements, devices, topUsed, errors] = await Promise.all([
+  const [overview, friction, elements, devices, topUsed, journeys, errors] = await Promise.all([
     getOverview(),
     getFrictionPages(8),
     getFrictionElements(12),
     getDeviceBreakdown(),
     getTopInteractions(12),
+    getSessionJourneys(6),
     getRecentErrors(8),
   ]);
 
@@ -374,6 +381,21 @@ export default async function PolishDashboard() {
             </table>
           )}
         </div>
+      </Section>
+
+      {/* Session journeys */}
+      <Section
+        title={
+          <>
+            Sampled user journeys
+            <InfoTip
+              anchor="left"
+              text="Full sessions sampled and ranked by friction (rage×3 + dead×2 + errors×2.5), preferring complete recordings and recent ones. Click a session to open its start-to-finish flow chart."
+            />
+          </>
+        }
+      >
+        <JourneyList journeys={journeys} />
       </Section>
 
       {/* Element breakdown */}
