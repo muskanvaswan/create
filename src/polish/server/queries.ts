@@ -57,6 +57,8 @@ export interface FrictionElement {
   deadClicks: number;
   /** Composite friction score; higher = worse. */
   score: number;
+  /** Client timestamp of the most recent interaction with this element, ms. */
+  lastInteraction: number;
 }
 
 export interface DeviceBucket {
@@ -178,6 +180,127 @@ export async function getFrictionPages(limit = 5): Promise<FrictionPage[]> {
     .slice(0, limit);
 }
 
+/** One point in a page's sessions-over-time series (one calendar day, UTC). */
+export interface PageTrendPoint {
+  /** Bucket start — UTC midnight, ms since epoch. */
+  ts: number;
+  /** Short human label for the bucket, e.g. "Jun 14". */
+  label: string;
+  /** Distinct sessions that viewed the page on that day. */
+  sessions: number;
+}
+
+/** A top page plus its session trend, for the "Top pages" table + drawer chart. */
+export interface TopPage {
+  path: string;
+  sessions: number;
+  pageViews: number;
+  rageClicks: number;
+  deadClicks: number;
+  jsErrors: number;
+  avgScrollDepth: number | null;
+  /** Daily sessions series, oldest → newest, gap-filled. */
+  trend: PageTrendPoint[];
+}
+
+const DAY_MS = 86_400_000;
+/** Cap the trend window so a wide date range stays a readable chart. */
+const MAX_TREND_DAYS = 30;
+
+function dayStart(ts: number): number {
+  return ts - (ts % DAY_MS);
+}
+
+function fmtDay(ts: number): string {
+  return new Date(ts).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/**
+ * The most-visited pages, ranked by distinct sessions, each with a daily
+ * sessions-over-time series for the detail chart. The aggregate is one grouped
+ * query; the trend comes from a second pull of page_view events for just the
+ * top paths, bucketed by UTC day in JS so it stays backend-portable.
+ */
+export async function getTopPages(limit = 8): Promise<TopPage[]> {
+  if (!(await storeReady())) return [];
+
+  const rows = await query(
+    `SELECT
+       path,
+       COUNT(DISTINCT session_id)                                     AS sessions,
+       SUM(CASE WHEN type = 'page_view'  THEN 1 ELSE 0 END)           AS "pageViews",
+       SUM(CASE WHEN type = 'rage_click' THEN 1 ELSE 0 END)           AS "rageClicks",
+       SUM(CASE WHEN type = 'dead_click' THEN 1 ELSE 0 END)           AS "deadClicks",
+       SUM(CASE WHEN type = 'js_error'   THEN 1 ELSE 0 END)           AS "jsErrors",
+       AVG(CASE WHEN type = 'scroll_depth' THEN value END)            AS "avgScrollDepth"
+     FROM events
+     GROUP BY path`,
+  );
+
+  const pages = rows
+    .map((r) => {
+      const avg = r.avgScrollDepth;
+      const avgNum = typeof avg === "number" ? avg : typeof avg === "string" ? Number(avg) : NaN;
+      return {
+        path: r.path as string,
+        sessions: num(r, "sessions"),
+        pageViews: num(r, "pageViews"),
+        rageClicks: num(r, "rageClicks"),
+        deadClicks: num(r, "deadClicks"),
+        jsErrors: num(r, "jsErrors"),
+        avgScrollDepth: Number.isFinite(avgNum) ? Math.round(avgNum) : null,
+      };
+    })
+    // "Top" = most visited; page views break ties.
+    .sort((a, b) => b.sessions - a.sessions || b.pageViews - a.pageViews)
+    .slice(0, limit);
+
+  if (pages.length === 0) return [];
+
+  // Pull page_view timestamps for just the top paths, then bucket by day.
+  const paths = pages.map((p) => p.path);
+  const placeholders = paths.map(() => "?").join(", ");
+  const views = await query(
+    `SELECT path, ts, session_id
+     FROM events
+     WHERE type = 'page_view' AND path IN (${placeholders})`,
+    paths,
+  );
+
+  // path → (UTC day → set of sessions seen that day)
+  const byPath = new Map<string, Map<number, Set<string>>>();
+  for (const v of views) {
+    const p = v.path as string;
+    const day = dayStart(num(v, "ts"));
+    let days = byPath.get(p);
+    if (!days) byPath.set(p, (days = new Map()));
+    let set = days.get(day);
+    if (!set) days.set(day, (set = new Set()));
+    set.add(v.session_id as string);
+  }
+
+  // Build a gap-filled daily series (zeros included) over the page's range,
+  // capped to the most recent MAX_TREND_DAYS so wide ranges stay readable.
+  const buildTrend = (days: Map<number, Set<string>> | undefined): PageTrendPoint[] => {
+    if (!days || days.size === 0) return [];
+    const keys = [...days.keys()].sort((a, b) => a - b);
+    const end = keys[keys.length - 1];
+    let start = keys[0];
+    if ((end - start) / DAY_MS > MAX_TREND_DAYS - 1) start = end - (MAX_TREND_DAYS - 1) * DAY_MS;
+    const out: PageTrendPoint[] = [];
+    for (let d = start; d <= end; d += DAY_MS) {
+      out.push({ ts: d, label: fmtDay(d), sessions: days.get(d)?.size ?? 0 });
+    }
+    return out;
+  };
+
+  return pages.map((p): TopPage => ({ ...p, trend: buildTrend(byPath.get(p.path)) }));
+}
+
 /**
  * Per-element interaction breakdown. Groups every click-type event by its
  * component (the `data-component` hint Polish walks up the DOM for) or, when no
@@ -195,7 +318,8 @@ export async function getFrictionElements(limit = 12): Promise<FrictionElement[]
        COUNT(DISTINCT path)                                             AS pages,
        SUM(CASE WHEN type = 'click'      THEN 1 ELSE 0 END)             AS clicks,
        SUM(CASE WHEN type = 'rage_click' THEN 1 ELSE 0 END)             AS "rageClicks",
-       SUM(CASE WHEN type = 'dead_click' THEN 1 ELSE 0 END)             AS "deadClicks"
+       SUM(CASE WHEN type = 'dead_click' THEN 1 ELSE 0 END)             AS "deadClicks",
+       MAX(ts)                                                          AS "lastTs"
      FROM events
      WHERE type IN ('click', 'rage_click', 'dead_click')
      GROUP BY COALESCE(component, selector, '(unknown)')`,
@@ -216,10 +340,11 @@ export async function getFrictionElements(limit = 12): Promise<FrictionElement[]
         rageClicks,
         deadClicks,
         score: Math.round((rageClicks * 3 + deadClicks * 2) * 10) / 10,
+        lastInteraction: num(r, "lastTs"),
       };
     })
-    // Surface elements that have friction first, then the most-clicked ones.
-    .sort((a, b) => b.score - a.score || b.clicks - a.clicks)
+    // Most recently interacted-with element first; friction breaks ties.
+    .sort((a, b) => b.lastInteraction - a.lastInteraction || b.score - a.score)
     .slice(0, limit);
 }
 
