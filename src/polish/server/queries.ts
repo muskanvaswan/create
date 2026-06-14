@@ -58,6 +58,34 @@ export interface FrictionElement {
   score: number;
 }
 
+export interface DeviceBucket {
+  /** Device category: "mobile" | "tablet" | "desktop". */
+  category: string;
+  /** Distinct sessions that fell into this bucket. */
+  sessions: number;
+  /** Share of all measured sessions, 0–100. */
+  pct: number;
+  /** Average viewport width (CSS px) for the bucket. */
+  avgWidth: number | null;
+}
+
+export interface TopInteraction {
+  /** Component name (from data-component) or, failing that, the selector. */
+  label: string;
+  /** True when `label` is a real component name, false when it's a raw selector. */
+  isComponent: boolean;
+  /** A representative DOM selector for this element. */
+  selector: string | null;
+  /** A sample of the element's visible text (label), if any. */
+  sampleText: string | null;
+  /** Total successful (interactive) clicks on this element. */
+  clicks: number;
+  /** Distinct sessions that clicked it. */
+  sessions: number;
+  /** Distinct pages it was clicked on. */
+  pages: number;
+}
+
 /** Coerce a DB cell to a finite number. Tolerates pg's stringified bigints. */
 function num(row: Record<string, unknown> | undefined, key: string): number {
   const v = row?.[key];
@@ -191,6 +219,77 @@ export async function getFrictionElements(limit = 12): Promise<FrictionElement[]
     })
     // Surface elements that have friction first, then the most-clicked ones.
     .sort((a, b) => b.score - a.score || b.clicks - a.clicks)
+    .slice(0, limit);
+}
+
+/**
+ * Device-size distribution. One `viewport` event is sampled per session at
+ * start; its category lives in the `text` column (mobile/tablet/desktop) and
+ * its width in `value`, so this groups without touching the JSON `meta` column.
+ * Sorted most-used device first — answers "what size screen do visitors use?".
+ */
+export async function getDeviceBreakdown(): Promise<DeviceBucket[]> {
+  const rows = await query(
+    `SELECT
+       text                        AS category,
+       COUNT(DISTINCT session_id)  AS sessions,
+       AVG(value)                  AS "avgWidth"
+     FROM events
+     WHERE type = 'viewport' AND text IS NOT NULL
+     GROUP BY text`,
+  );
+
+  const buckets = rows.map((r) => {
+    const avg = r.avgWidth;
+    const avgNum = typeof avg === "number" ? avg : typeof avg === "string" ? Number(avg) : NaN;
+    return {
+      category: r.category as string,
+      sessions: num(r, "sessions"),
+      avgWidth: Number.isFinite(avgNum) ? Math.round(avgNum) : null,
+    };
+  });
+
+  const total = buckets.reduce((sum, b) => sum + b.sessions, 0);
+  return buckets
+    .map((b): DeviceBucket => ({
+      ...b,
+      pct: total > 0 ? Math.round((b.sessions / total) * 1000) / 10 : 0,
+    }))
+    .sort((a, b) => b.sessions - a.sessions);
+}
+
+/**
+ * Most-used features. Ranks interactive elements by raw click volume (the
+ * `click` type — successful clicks on links/buttons/etc., excluding rage and
+ * dead clicks). Where `getFrictionElements` surfaces what's *broken*, this
+ * surfaces what's *popular* — which buttons and features people actually use.
+ */
+export async function getTopInteractions(limit = 12): Promise<TopInteraction[]> {
+  const rows = await query(
+    `SELECT
+       COALESCE(component, selector, '(unknown)')             AS label,
+       MAX(CASE WHEN component IS NOT NULL THEN 1 ELSE 0 END) AS "isComponent",
+       MAX(selector)                                          AS selector,
+       MAX(text)                                              AS "sampleText",
+       COUNT(*)                                               AS clicks,
+       COUNT(DISTINCT session_id)                             AS sessions,
+       COUNT(DISTINCT path)                                   AS pages
+     FROM events
+     WHERE type = 'click'
+     GROUP BY COALESCE(component, selector, '(unknown)')`,
+  );
+
+  return rows
+    .map((r): TopInteraction => ({
+      label: r.label as string,
+      isComponent: num(r, "isComponent") === 1,
+      selector: (r.selector as string) ?? null,
+      sampleText: (r.sampleText as string) ?? null,
+      clicks: num(r, "clicks"),
+      sessions: num(r, "sessions"),
+      pages: num(r, "pages"),
+    }))
+    .sort((a, b) => b.clicks - a.clicks || b.sessions - a.sessions)
     .slice(0, limit);
 }
 

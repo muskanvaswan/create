@@ -17,6 +17,7 @@ export type PolishEventType =
   | "rage_click" // 3+ rapid clicks on the same element (frustration)
   | "dead_click" // a click on a non-interactive element (confusion)
   | "scroll_depth" // max scroll reached on a page before leaving it
+  | "viewport" // device/viewport size sampled once at session start
   | "js_error" // an uncaught error or unhandled rejection
   | "web_vital" // a Core Web Vital sample (LCP, CLS, INP)
   | "session_end"; // the session's last page was unloaded
@@ -42,6 +43,7 @@ export interface PolishEvent {
    * Numeric payload whose meaning depends on `type`:
    * - scroll_depth: percent 0–100
    * - web_vital: the metric value (ms, or unitless for CLS)
+   * - viewport: viewport width in CSS pixels
    */
   value?: number;
   /** Small, typed extras keyed by event type (e.g. vital name, error message). */
@@ -70,6 +72,7 @@ export const CLIENT_EVENT_TYPES: ReadonlySet<PolishEventType> = new Set<PolishEv
   "rage_click",
   "dead_click",
   "scroll_depth",
+  "viewport",
   "js_error",
   "web_vital",
   "session_end",

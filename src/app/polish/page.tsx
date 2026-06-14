@@ -2,12 +2,16 @@ import type { Metadata } from "next";
 
 import { hasRegisteredPasskey, isAuthenticated } from "@/lib/auth";
 import {
+  getDeviceBreakdown,
   getFrictionElements,
   getFrictionPages,
   getOverview,
   getRecentErrors,
+  getTopInteractions,
+  type DeviceBucket,
   type FrictionElement,
   type FrictionPage,
+  type TopInteraction,
 } from "@/polish/server/queries";
 import { PolishLogin } from "./login";
 
@@ -159,6 +163,70 @@ function ElementRow({ el }: { el: FrictionElement }) {
   );
 }
 
+// ── Device row (with usage bar) ──────────────────────────────────────────────
+const DEVICE_META: Record<string, { label: string; icon: string }> = {
+  mobile: { label: "Mobile", icon: "▪" },
+  tablet: { label: "Tablet", icon: "▭" },
+  desktop: { label: "Desktop", icon: "▭▭" },
+};
+
+function DeviceRow({ bucket }: { bucket: DeviceBucket }) {
+  const meta = DEVICE_META[bucket.category] ?? { label: bucket.category, icon: "▫" };
+  return (
+    <div className={`flex items-center gap-3 px-5 py-3 ${divider} first:border-t-0`}>
+      <span className="w-20 shrink-0 text-[13px] font-medium capitalize text-white">
+        {meta.label}
+      </span>
+      <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#1a1a1a]">
+        <div
+          className="h-full rounded-full bg-blue-500"
+          style={{ width: `${Math.max(bucket.pct, 1.5)}%` }}
+        />
+      </div>
+      <span className="w-12 shrink-0 text-right text-[13px] font-semibold tabular-nums text-white">
+        {bucket.pct}%
+      </span>
+      <span className="w-28 shrink-0 text-right text-[12px] tabular-nums text-[#666]">
+        {bucket.sessions} {bucket.sessions === 1 ? "session" : "sessions"}
+      </span>
+      <span className="w-20 shrink-0 text-right text-[12px] tabular-nums text-[#555]">
+        {bucket.avgWidth === null ? "—" : `~${bucket.avgWidth}px`}
+      </span>
+    </div>
+  );
+}
+
+// ── Most-used feature row ─────────────────────────────────────────────────────
+function TopInteractionRow({ el }: { el: TopInteraction }) {
+  return (
+    <tr className={`${divider} align-top`}>
+      <td className="py-2.5 pl-5 pr-6">
+        <div className="flex items-center gap-2">
+          <span className="text-[13px] font-medium text-white">{el.label}</span>
+          <span
+            className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
+              el.isComponent ? "bg-blue-950 text-blue-400" : "bg-[#1a1a1a] text-[#555]"
+            }`}
+          >
+            {el.isComponent ? "component" : "selector"}
+          </span>
+        </div>
+        {el.sampleText && (
+          <div className="mt-0.5 font-mono text-[11px] text-[#555]">"{el.sampleText}"</div>
+        )}
+        {el.isComponent && el.selector && (
+          <div className="mt-0.5 font-mono text-[11px] text-[#444]">{el.selector}</div>
+        )}
+      </td>
+      <td className="py-2.5 px-4 text-right text-[13px] font-semibold tabular-nums text-white">
+        {el.clicks}
+      </td>
+      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">{el.sessions}</td>
+      <td className="py-2.5 pl-4 pr-5 text-right text-[13px] tabular-nums text-[#888]">{el.pages}</td>
+    </tr>
+  );
+}
+
 // ── Section wrapper ──────────────────────────────────────────────────────────
 function Section({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -176,10 +244,12 @@ export default async function PolishDashboard() {
     return <PolishLogin canRegister={!hasRegisteredPasskey()} />;
   }
 
-  const [overview, friction, elements, errors] = await Promise.all([
+  const [overview, friction, elements, devices, topUsed, errors] = await Promise.all([
     getOverview(),
     getFrictionPages(8),
     getFrictionElements(12),
+    getDeviceBreakdown(),
+    getTopInteractions(12),
     getRecentErrors(8),
   ]);
 
@@ -255,6 +325,29 @@ export default async function PolishDashboard() {
         </div>
       </Section>
 
+      {/* Device sizes */}
+      <Section
+        title={
+          <>
+            Device sizes
+            <InfoTip
+              anchor="left"
+              text="One viewport sample per session, taken at session start, bucketed by CSS width: mobile (<640px), tablet (640–1023px), desktop (≥1024px). Shows what screen size visitors actually use."
+            />
+          </>
+        }
+      >
+        <div className={card}>
+          {devices.length === 0 ? (
+            <p className="px-5 py-8 text-center text-[13px] text-[#555]">
+              No viewport data yet — browse the site then refresh.
+            </p>
+          ) : (
+            devices.map((d) => <DeviceRow key={d.category} bucket={d} />)
+          )}
+        </div>
+      </Section>
+
       {/* Friction pages */}
       <Section title="Top friction pages">
         <div className={card}>
@@ -316,6 +409,41 @@ export default async function PolishDashboard() {
               </thead>
               <tbody>
                 {elements.map((el) => <ElementRow key={el.label} el={el} />)}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </Section>
+
+      {/* Most-used features */}
+      <Section
+        title={
+          <>
+            Most-used features
+            <InfoTip
+              anchor="left"
+              text="Interactive elements ranked by raw click volume (successful clicks only — rage and dead clicks excluded). The buttons and features visitors actually use most."
+            />
+          </>
+        }
+      >
+        <div className={card}>
+          {topUsed.length === 0 ? (
+            <p className="px-5 py-8 text-center text-[13px] text-[#555]">
+              No clicks captured yet — browse the site then refresh.
+            </p>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr>
+                  <Th align="left" tip="Component name (from data-component) or DOM selector. Sample text and selector shown beneath.">Element</Th>
+                  <Th tip="Total successful (interactive) clicks across all pages.">Clicks</Th>
+                  <Th tip="Distinct sessions that clicked this element.">Sessions</Th>
+                  <Th tip="How many distinct pages this element was clicked on.">Pages</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {topUsed.map((el) => <TopInteractionRow key={el.label} el={el} />)}
               </tbody>
             </table>
           )}
