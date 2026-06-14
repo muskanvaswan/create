@@ -4,18 +4,18 @@ import { hasRegisteredPasskey, isAuthenticated } from "@/lib/auth";
 import {
   getDeviceBreakdown,
   getFrictionElements,
-  getFrictionPages,
   getOverview,
   getRecentErrors,
   getSessionJourneys,
   getTopInteractions,
+  getTopPages,
   type DeviceBucket,
-  type FrictionElement,
-  type FrictionPage,
-  type TopInteraction,
 } from "@/polish/server/queries";
+import ElementsTableBody from "./elements";
+import TopFeaturesTableBody from "./features";
 import JourneyList from "./journeys";
 import { PolishLogin } from "./login";
+import TopPagesTable from "./pages";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -105,66 +105,6 @@ function Th({
   );
 }
 
-// ── Score colour ─────────────────────────────────────────────────────────────
-function scoreTone(score: number) {
-  if (score >= 10) return "text-red-500";
-  if (score >= 4) return "text-[#f5a623]";
-  return "text-[#0cce6b]";
-}
-
-// ── Rows ─────────────────────────────────────────────────────────────────────
-function FrictionRow({ page }: { page: FrictionPage }) {
-  return (
-    <tr className={divider}>
-      <td className="py-2.5 pl-5 pr-6 font-mono text-[13px] text-[#ccc]">{page.path}</td>
-      <td className={`py-2.5 px-4 text-right text-[13px] font-semibold tabular-nums ${scoreTone(page.score)}`}>
-        {page.score}
-      </td>
-      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">{page.sessions}</td>
-      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">{page.rageClicks}</td>
-      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">{page.deadClicks}</td>
-      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">{page.jsErrors}</td>
-      <td className="py-2.5 pl-4 pr-5 text-right text-[13px] tabular-nums text-[#888]">
-        {page.avgScrollDepth === null ? "—" : `${page.avgScrollDepth}%`}
-      </td>
-    </tr>
-  );
-}
-
-function ElementRow({ el }: { el: FrictionElement }) {
-  return (
-    <tr className={`${divider} align-top`}>
-      <td className="py-2.5 pl-5 pr-6">
-        <div className="flex items-center gap-2">
-          <span className="text-[13px] font-medium text-white">{el.label}</span>
-          <span
-            className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
-              el.isComponent
-                ? "bg-blue-950 text-blue-400"
-                : "bg-[#1a1a1a] text-[#555]"
-            }`}
-          >
-            {el.isComponent ? "component" : "selector"}
-          </span>
-        </div>
-        {el.sampleText && (
-          <div className="mt-0.5 font-mono text-[11px] text-[#555]">"{el.sampleText}"</div>
-        )}
-        {el.isComponent && el.selector && (
-          <div className="mt-0.5 font-mono text-[11px] text-[#444]">{el.selector}</div>
-        )}
-      </td>
-      <td className={`py-2.5 px-4 text-right text-[13px] font-semibold tabular-nums ${scoreTone(el.score)}`}>
-        {el.score}
-      </td>
-      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">{el.clicks}</td>
-      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">{el.rageClicks}</td>
-      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">{el.deadClicks}</td>
-      <td className="py-2.5 pl-4 pr-5 text-right text-[13px] tabular-nums text-[#888]">{el.pages}</td>
-    </tr>
-  );
-}
-
 // ── Device row (with usage bar) ──────────────────────────────────────────────
 const DEVICE_META: Record<string, { label: string; icon: string }> = {
   mobile: { label: "Mobile", icon: "▪" },
@@ -199,36 +139,6 @@ function DeviceRow({ bucket }: { bucket: DeviceBucket }) {
 }
 
 // ── Most-used feature row ─────────────────────────────────────────────────────
-function TopInteractionRow({ el }: { el: TopInteraction }) {
-  return (
-    <tr className={`${divider} align-top`}>
-      <td className="py-2.5 pl-5 pr-6">
-        <div className="flex items-center gap-2">
-          <span className="text-[13px] font-medium text-white">{el.label}</span>
-          <span
-            className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
-              el.isComponent ? "bg-blue-950 text-blue-400" : "bg-[#1a1a1a] text-[#555]"
-            }`}
-          >
-            {el.isComponent ? "component" : "selector"}
-          </span>
-        </div>
-        {el.sampleText && (
-          <div className="mt-0.5 font-mono text-[11px] text-[#555]">"{el.sampleText}"</div>
-        )}
-        {el.isComponent && el.selector && (
-          <div className="mt-0.5 font-mono text-[11px] text-[#444]">{el.selector}</div>
-        )}
-      </td>
-      <td className="py-2.5 px-4 text-right text-[13px] font-semibold tabular-nums text-white">
-        {el.clicks}
-      </td>
-      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">{el.sessions}</td>
-      <td className="py-2.5 pl-4 pr-5 text-right text-[13px] tabular-nums text-[#888]">{el.pages}</td>
-    </tr>
-  );
-}
-
 // ── Section wrapper ──────────────────────────────────────────────────────────
 function Section({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -250,9 +160,9 @@ export default async function PolishDashboard() {
     return <PolishLogin canRegister={!hasRegisteredPasskey()} />;
   }
 
-  const [overview, friction, elements, devices, topUsed, journeys, errors] = await Promise.all([
+  const [overview, pages, elements, devices, topUsed, journeys, errors] = await Promise.all([
     getOverview(),
-    getFrictionPages(8),
+    getTopPages(8),
     getFrictionElements(12),
     getDeviceBreakdown(),
     getTopInteractions(12),
@@ -355,32 +265,19 @@ export default async function PolishDashboard() {
         </div>
       </Section>
 
-      {/* Friction pages */}
-      <Section title="Top friction pages">
-        <div className={card}>
-          {friction.length === 0 ? (
-            <p className="px-5 py-8 text-center text-[13px] text-[#555]">
-              No data yet — browse the site then refresh.
-            </p>
-          ) : (
-            <table className="w-full">
-              <thead>
-                <tr>
-                  <Th align="left" tip="The route the events were recorded on.">Path</Th>
-                  <Th tip="Weighted friction: rage×3 + dead×2 + errors×2.5, plus a penalty when avg scroll depth is under 50%. Higher = worse.">Score</Th>
-                  <Th tip="Distinct sessions that viewed this page.">Sessions</Th>
-                  <Th tip="Rage clicks (3+ in 500ms on one element) on this page.">Rage</Th>
-                  <Th tip="Dead clicks (on non-interactive elements) on this page.">Dead</Th>
-                  <Th tip="JS errors thrown on this page.">Errors</Th>
-                  <Th tip="Average of each session's deepest scroll on this page. Low % = content below the fold is missed.">Scroll</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {friction.map((p) => <FrictionRow key={p.path} page={p} />)}
-              </tbody>
-            </table>
-          )}
-        </div>
+      {/* Top pages */}
+      <Section
+        title={
+          <>
+            Top pages
+            <InfoTip
+              anchor="left"
+              text="The most-visited routes, ranked by distinct sessions. Click a page to open a chart of its sessions over time."
+            />
+          </>
+        }
+      >
+        <TopPagesTable pages={pages} />
       </Section>
 
       {/* Session journeys */}
@@ -396,6 +293,39 @@ export default async function PolishDashboard() {
         }
       >
         <JourneyList journeys={journeys} />
+      </Section>
+
+      {/* Most-used features */}
+      <Section
+        title={
+          <>
+            Most-used features
+            <InfoTip
+              anchor="left"
+              text="Interactive elements ranked by raw click volume (successful clicks only — rage and dead clicks excluded). The buttons and features visitors actually use most."
+            />
+          </>
+        }
+      >
+        <div className={card}>
+          {topUsed.length === 0 ? (
+            <p className="px-5 py-8 text-center text-[13px] text-[#555]">
+              No clicks captured yet — browse the site then refresh.
+            </p>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr>
+                  <Th align="left" tip="Component name (from data-component) or DOM selector. Sample text and selector shown beneath.">Element</Th>
+                  <Th tip="Total successful (interactive) clicks across all pages.">Clicks</Th>
+                  <Th tip="Distinct sessions that clicked this element.">Sessions</Th>
+                  <Th tip="How many distinct pages this element was clicked on.">Pages</Th>
+                </tr>
+              </thead>
+              <TopFeaturesTableBody features={topUsed} />
+            </table>
+          )}
+        </div>
       </Section>
 
       {/* Element breakdown */}
@@ -429,44 +359,7 @@ export default async function PolishDashboard() {
                   <Th tip="How many distinct pages this element appeared on.">Pages</Th>
                 </tr>
               </thead>
-              <tbody>
-                {elements.map((el) => <ElementRow key={el.label} el={el} />)}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </Section>
-
-      {/* Most-used features */}
-      <Section
-        title={
-          <>
-            Most-used features
-            <InfoTip
-              anchor="left"
-              text="Interactive elements ranked by raw click volume (successful clicks only — rage and dead clicks excluded). The buttons and features visitors actually use most."
-            />
-          </>
-        }
-      >
-        <div className={card}>
-          {topUsed.length === 0 ? (
-            <p className="px-5 py-8 text-center text-[13px] text-[#555]">
-              No clicks captured yet — browse the site then refresh.
-            </p>
-          ) : (
-            <table className="w-full">
-              <thead>
-                <tr>
-                  <Th align="left" tip="Component name (from data-component) or DOM selector. Sample text and selector shown beneath.">Element</Th>
-                  <Th tip="Total successful (interactive) clicks across all pages.">Clicks</Th>
-                  <Th tip="Distinct sessions that clicked this element.">Sessions</Th>
-                  <Th tip="How many distinct pages this element was clicked on.">Pages</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {topUsed.map((el) => <TopInteractionRow key={el.label} el={el} />)}
-              </tbody>
+              <ElementsTableBody elements={elements} />
             </table>
           )}
         </div>
