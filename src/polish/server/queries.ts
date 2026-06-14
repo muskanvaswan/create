@@ -10,6 +10,7 @@
  * spelled `SUM(CASE WHEN … THEN 1 ELSE 0 END)` rather than SQLite's `SUM(x = y)`.
  */
 import { parseMeta, query, storeReady } from "./store";
+import type { PolishEventType } from "../shared/types";
 
 export interface OverviewStats {
   ready: boolean;
@@ -291,6 +292,201 @@ export async function getTopInteractions(limit = 12): Promise<TopInteraction[]> 
     }))
     .sort((a, b) => b.clicks - a.clicks || b.sessions - a.sessions)
     .slice(0, limit);
+}
+
+// ── Session journeys ─────────────────────────────────────────────────────────
+
+/** One action in a reconstructed session, in the order it happened. */
+export interface JourneyStep {
+  type: PolishEventType;
+  /** Client clock for this action, ms since epoch. */
+  ts: number;
+  /** Pathname the action occurred on. */
+  path: string;
+  /** Component name, element text, or selector — whatever identifies the target. */
+  label: string | null;
+  /** Extra context for the step (error message, scroll %, etc.). */
+  detail: string | null;
+}
+
+/** Device/viewport details sampled once at the start of a session. */
+export interface JourneyDevice {
+  category: string | null;
+  width: number | null;
+  height: number | null;
+  dpr: number | null;
+}
+
+/** A single sampled session, reconstructed start-to-finish for the flow chart. */
+export interface SessionJourney {
+  /** Short, display-safe slice of the opaque session id. */
+  id: string;
+  /** First and last client timestamps seen for the session. */
+  startedAt: number;
+  endedAt: number;
+  /** Wall-clock length of the recording, ms. */
+  durationMs: number;
+  /** True when a `session_end` event was captured (a complete recording). */
+  complete: boolean;
+  /** Distinct pages visited. */
+  pages: number;
+  device: JourneyDevice;
+  rageClicks: number;
+  deadClicks: number;
+  jsErrors: number;
+  /** Composite friction score; higher = worse. Drives the sampling order. */
+  score: number;
+  /** Ordered list of user actions. */
+  steps: JourneyStep[];
+  /** True when `steps` was capped and the journey is longer than shown. */
+  truncated: boolean;
+}
+
+/** Event types that are user *actions* (the flow-chart nodes). */
+const JOURNEY_ACTION_TYPES: ReadonlySet<PolishEventType> = new Set<PolishEventType>([
+  "page_view",
+  "click",
+  "rage_click",
+  "dead_click",
+  "js_error",
+  "session_end",
+]);
+
+/** Keep journeys readable: cap how many steps a single flow chart renders. */
+const MAX_JOURNEY_STEPS = 50;
+
+/**
+ * Sampled full-session recordings, reconstructed as ordered action flows.
+ *
+ * Sampling strategy: every session is scored by friction (rage×3 + dead×2 +
+ * errors×2.5). We surface the highest-friction sessions first — those are the
+ * ones worth replaying — preferring *complete* recordings (a `session_end` was
+ * captured) and breaking ties by recency. When there's no friction at all this
+ * degrades to "most recent complete sessions", so the section is still useful.
+ */
+export async function getSessionJourneys(limit = 6): Promise<SessionJourney[]> {
+  if (!(await storeReady())) return [];
+
+  // 1. Score and rank candidate sessions for sampling.
+  const summary = await query(
+    `SELECT
+       session_id                                                    AS id,
+       MIN(ts)                                                        AS started,
+       MAX(ts)                                                        AS ended,
+       COUNT(DISTINCT path)                                           AS pages,
+       SUM(CASE WHEN type = 'rage_click' THEN 1 ELSE 0 END)          AS rage,
+       SUM(CASE WHEN type = 'dead_click' THEN 1 ELSE 0 END)          AS dead,
+       SUM(CASE WHEN type = 'js_error'   THEN 1 ELSE 0 END)          AS errors,
+       MAX(CASE WHEN type = 'session_end' THEN 1 ELSE 0 END)         AS complete,
+       SUM(CASE WHEN type IN ('page_view','click','rage_click','dead_click')
+                THEN 1 ELSE 0 END)                                   AS actions
+     FROM events
+     GROUP BY session_id`,
+  );
+
+  const ranked = summary
+    .map((r) => {
+      const rage = num(r, "rage");
+      const dead = num(r, "dead");
+      const errors = num(r, "errors");
+      return {
+        id: r.id as string,
+        started: num(r, "started"),
+        ended: num(r, "ended"),
+        pages: num(r, "pages"),
+        rage,
+        dead,
+        errors,
+        complete: num(r, "complete") === 1,
+        actions: num(r, "actions"),
+        score: Math.round((rage * 3 + dead * 2 + errors * 2.5) * 10) / 10,
+      };
+    })
+    // A "journey" needs at least a couple of actions to be worth showing.
+    .filter((s) => s.actions >= 2)
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        Number(b.complete) - Number(a.complete) ||
+        b.ended - a.ended,
+    )
+    .slice(0, limit);
+
+  if (ranked.length === 0) return [];
+
+  // 2. Pull every event for just the sampled sessions, in chronological order.
+  const ids = ranked.map((s) => s.id);
+  const placeholders = ids.map(() => "?").join(", ");
+  const rows = await query(
+    `SELECT session_id, type, ts, path, selector, component, text, value, meta
+     FROM events
+     WHERE session_id IN (${placeholders})
+     ORDER BY session_id, id`,
+    ids,
+  );
+
+  // 3. Group rows back into per-session event streams.
+  const streams = new Map<string, Record<string, unknown>[]>();
+  for (const r of rows) {
+    const sid = r.session_id as string;
+    const list = streams.get(sid);
+    if (list) list.push(r);
+    else streams.set(sid, [r]);
+  }
+
+  // 4. Build a journey per ranked session, preserving the ranking order.
+  return ranked.map((s): SessionJourney => {
+    const events = streams.get(s.id) ?? [];
+    const device: JourneyDevice = { category: null, width: null, height: null, dpr: null };
+    const steps: JourneyStep[] = [];
+
+    for (const e of events) {
+      const type = e.type as PolishEventType;
+
+      // The viewport event isn't an action — it carries device details.
+      if (type === "viewport") {
+        device.category = (e.text as string) ?? null;
+        device.width = e.value == null ? null : Number(e.value);
+        const meta = parseMeta(e.meta);
+        if (meta) {
+          if (typeof meta.h === "number") device.height = meta.h;
+          if (typeof meta.dpr === "number") device.dpr = meta.dpr;
+        }
+        continue;
+      }
+
+      if (!JOURNEY_ACTION_TYPES.has(type)) continue; // scroll_depth, web_vital
+      if (steps.length >= MAX_JOURNEY_STEPS) break;
+
+      let label: string | null = null;
+      let detail: string | null = null;
+      if (type === "js_error") {
+        const meta = parseMeta(e.meta);
+        detail = meta && typeof meta.message === "string" ? meta.message : "Unknown error";
+      } else if (type !== "page_view" && type !== "session_end") {
+        label =
+          (e.component as string) || (e.text as string) || (e.selector as string) || null;
+      }
+
+      steps.push({ type, ts: num(e, "ts"), path: e.path as string, label, detail });
+    }
+
+    return {
+      id: s.id.slice(0, 8),
+      startedAt: s.started,
+      endedAt: s.ended,
+      durationMs: Math.max(0, s.ended - s.started),
+      complete: s.complete,
+      pages: s.pages,
+      device,
+      rageClicks: s.rage,
+      deadClicks: s.dead,
+      jsErrors: s.errors,
+      score: s.score,
+      steps,
+      truncated: steps.length >= MAX_JOURNEY_STEPS,
+    };
+  });
 }
 
 export async function getRecentErrors(limit = 10): Promise<RecentError[]> {
