@@ -33,6 +33,10 @@ export function initPolish(options: InitOptions = {}): void {
     if (queue.length >= cfg.maxBatchSize) flush();
   };
 
+  // Expose a track function so TrackingWrapper components can emit explicit
+  // events (e.g. hover) without coupling to React internals.
+  (window as Window & { __polishTrack?: typeof push }).__polishTrack = push;
+
   // ---- transport -----------------------------------------------------------
 
   const flush = (useBeacon = false) => {
