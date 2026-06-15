@@ -440,7 +440,7 @@ export default async function PolishDashboard() {
             Interactions by element
             <InfoTip
               anchor="left"
-              text="Click-type events grouped by data-component attribute when present, otherwise by DOM selector. This is which UI element the friction is on — the primary input to Stage 2 synthesis."
+              text="Click-type events grouped by DOM selector. This is which UI element the friction is on — the primary input to Stage 2 synthesis. Components wrapped in <PolishMonitor> are listed separately under Monitored components."
             />
           </>
         }
@@ -448,21 +448,18 @@ export default async function PolishDashboard() {
         <div className={card}>
           {elements.length === 0 ? (
             <p className="px-5 py-8 text-center text-[13px] text-[#555]">
-              No interactions captured yet. Add{" "}
-              <code className="font-mono text-[#777]">data-component="Name"</code> to elements
-              for richer labels.
+              No interactions captured yet — browse the site then refresh.
             </p>
           ) : (
             <ElementsTable
               elements={elements}
               header={
                 <tr>
-                  <Th align="left" tip="Component name (from data-component) or DOM selector. Sample text and selector shown beneath.">Element</Th>
+                  <Th align="left" tip="DOM selector path for the interacted element. Sample text shown beneath.">Element</Th>
                   <Th tip="rage×3 + dead×2 for this element across all pages.">Score</Th>
                   <Th tip="Normal (non-rage, non-dead) clicks.">Clicks</Th>
                   <Th tip="Rage clicks on this element.">Rage</Th>
                   <Th tip="Dead clicks on this element.">Dead</Th>
-                  <Th tip="Deliberate hovers (≥200ms dwell), captured for elements wrapped in <PolishMonitor>.">Hovers</Th>
                   <Th tip="How many distinct pages this element appeared on.">Pages</Th>
                 </tr>
               }

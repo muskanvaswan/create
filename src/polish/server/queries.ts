@@ -42,10 +42,8 @@ export interface RecentError {
 }
 
 export interface FrictionElement {
-  /** The component name (from data-component) or, failing that, the selector. */
+  /** The DOM selector this element was interacted with as. */
   label: string;
-  /** True when `label` is a real component name, false when it's a raw selector. */
-  isComponent: boolean;
   /** A representative DOM selector for this element. */
   selector: string | null;
   /** A sample of the element's visible text (label), if any. */
@@ -55,8 +53,6 @@ export interface FrictionElement {
   clicks: number;
   rageClicks: number;
   deadClicks: number;
-  /** Deliberate hovers (≥200ms dwell) on this element, via <PolishMonitor>. */
-  hovers: number;
   /** Composite friction score; higher = worse. */
   score: number;
   /** Client timestamp of the most recent interaction with this element, ms. */
@@ -304,28 +300,28 @@ export async function getTopPages(limit = 8): Promise<TopPage[]> {
 }
 
 /**
- * Per-element interaction breakdown. Groups every click-type event by its
- * component (the `data-component` hint Polish walks up the DOM for) or, when no
- * component is annotated, by its selector path. This is the data that makes
- * Stage 2 synthesis possible: it tells you *which UI element* the friction is
- * on, not just which page.
+ * Per-element interaction breakdown, grouped by DOM selector path. This is the
+ * data that makes Stage 2 synthesis possible: it tells you *which UI element*
+ * the friction is on, not just which page.
+ *
+ * Explicitly monitored components (those wrapped in <PolishMonitor>, the only
+ * source of `data-component`) are excluded here — they get their own dedicated
+ * "Monitored components" section, so this table covers the rest of the UI.
  */
 export async function getFrictionElements(limit = 12): Promise<FrictionElement[]> {
   const rows = await query(
     `SELECT
-       COALESCE(component, selector, '(unknown)')                       AS label,
-       MAX(CASE WHEN component IS NOT NULL THEN 1 ELSE 0 END)           AS "isComponent",
+       COALESCE(selector, '(unknown)')                                 AS label,
        MAX(selector)                                                    AS selector,
        MAX(text)                                                        AS "sampleText",
        COUNT(DISTINCT path)                                             AS pages,
        SUM(CASE WHEN type = 'click'      THEN 1 ELSE 0 END)             AS clicks,
        SUM(CASE WHEN type = 'rage_click' THEN 1 ELSE 0 END)             AS "rageClicks",
        SUM(CASE WHEN type = 'dead_click' THEN 1 ELSE 0 END)             AS "deadClicks",
-       SUM(CASE WHEN type = 'hover'      THEN 1 ELSE 0 END)             AS hovers,
        MAX(ts)                                                          AS "lastTs"
      FROM events
-     WHERE type IN ('click', 'rage_click', 'dead_click', 'hover')
-     GROUP BY COALESCE(component, selector, '(unknown)')`,
+     WHERE type IN ('click', 'rage_click', 'dead_click') AND component IS NULL
+     GROUP BY COALESCE(selector, '(unknown)')`,
   );
 
   return rows
@@ -335,14 +331,12 @@ export async function getFrictionElements(limit = 12): Promise<FrictionElement[]
       const clicks = num(r, "clicks");
       return {
         label: r.label as string,
-        isComponent: num(r, "isComponent") === 1,
         selector: (r.selector as string) ?? null,
         sampleText: (r.sampleText as string) ?? null,
         pages: num(r, "pages"),
         clicks,
         rageClicks,
         deadClicks,
-        hovers: num(r, "hovers"),
         score: Math.round((rageClicks * 3 + deadClicks * 2) * 10) / 10,
         lastInteraction: num(r, "lastTs"),
       };
