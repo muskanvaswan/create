@@ -13,8 +13,8 @@ import {
   type DeviceBucket,
   type MonitoredComponent,
 } from "@/polish/server/queries";
-import ElementsTableBody from "./elements";
-import TopFeaturesTableBody from "./features";
+import ElementsTable from "./elements";
+import TopFeaturesTable from "./features";
 import JourneyList from "./journeys";
 import { PolishLogin } from "./login";
 import TopPagesTable from "./pages";
@@ -37,12 +37,17 @@ const divider = `border-t ${border}`;
 function InfoTip({
   text,
   anchor = "center",
+  below = false,
 }: {
   text: string;
   anchor?: "left" | "center" | "right";
+  // Open downward instead of upward. Needed inside horizontally-scrollable
+  // tables, whose overflow wrapper clips anything popping above the header row.
+  below?: boolean;
 }) {
   const anchorClass =
     anchor === "left" ? "left-0" : anchor === "right" ? "right-0" : "left-1/2 -translate-x-1/2";
+  const vClass = below ? "top-full mt-2" : "bottom-full mb-2";
   return (
     <span className="group/tip relative ml-1 inline-flex translate-y-px cursor-help align-middle">
       <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-[#444] text-[9px] font-bold leading-none text-[#666]">
@@ -50,7 +55,7 @@ function InfoTip({
       </span>
       <span
         role="tooltip"
-        className={`pointer-events-none absolute bottom-full ${anchorClass} z-20 mb-2 w-64 rounded-lg border border-[#2e2e2e] bg-[#111] px-3 py-2 text-left text-[12px] font-normal normal-case leading-snug tracking-normal text-[#aaa] opacity-0 shadow-2xl transition-opacity duration-150 group-hover/tip:opacity-100`}
+        className={`pointer-events-none absolute ${vClass} ${anchorClass} z-20 w-64 max-w-[calc(100vw-2rem)] rounded-lg border border-[#2e2e2e] bg-[#111] px-3 py-2 text-left text-[12px] font-normal normal-case leading-snug tracking-normal text-[#aaa] opacity-0 shadow-2xl transition-opacity duration-150 group-hover/tip:opacity-100`}
       >
         {text}
       </span>
@@ -101,7 +106,7 @@ function Th({
     >
       <span className="inline-flex items-center gap-0.5">
         {children}
-        <InfoTip text={tip} anchor={align === "left" ? "left" : "right"} />
+        <InfoTip text={tip} anchor={align === "left" ? "left" : "right"} below />
       </span>
     </th>
   );
@@ -215,7 +220,7 @@ export default async function PolishDashboard() {
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10 text-white">
       {/* Header */}
-      <div className={`mb-8 flex items-start justify-between border-b ${border} pb-6`}>
+      <div className={`mb-8 flex items-start justify-between gap-3 border-b ${border} pb-6`}>
         <div>
           <p className={label}>Polish</p>
           <h1 className="mt-1 text-[22px] font-semibold tracking-tight text-white">
@@ -229,7 +234,7 @@ export default async function PolishDashboard() {
             for calculation details.
           </p>
         </div>
-        <div className={`rounded-full px-3 py-1 text-[11px] font-medium ${
+        <div className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-[11px] font-medium ${
           overview.ready
             ? "bg-emerald-950 text-emerald-400"
             : "bg-[#1a1a1a] text-[#666]"
@@ -355,19 +360,17 @@ export default async function PolishDashboard() {
               No clicks captured yet — browse the site then refresh.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-            <table className="w-full min-w-[420px]">
-              <thead>
+            <TopFeaturesTable
+              features={topUsed}
+              header={
                 <tr>
                   <Th align="left" tip="Component name (from data-component) or DOM selector. Sample text and selector shown beneath.">Element</Th>
                   <Th tip="Total successful (interactive) clicks across all pages.">Clicks</Th>
                   <Th tip="Distinct sessions that clicked this element.">Sessions</Th>
                   <Th tip="How many distinct pages this element was clicked on.">Pages</Th>
                 </tr>
-              </thead>
-              <TopFeaturesTableBody features={topUsed} />
-            </table>
-            </div>
+              }
+            />
           )}
         </div>
       </Section>
@@ -434,9 +437,9 @@ export default async function PolishDashboard() {
               for richer labels.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px]">
-              <thead>
+            <ElementsTable
+              elements={elements}
+              header={
                 <tr>
                   <Th align="left" tip="Component name (from data-component) or DOM selector. Sample text and selector shown beneath.">Element</Th>
                   <Th tip="rage×3 + dead×2 for this element across all pages.">Score</Th>
@@ -446,10 +449,8 @@ export default async function PolishDashboard() {
                   <Th tip="Deliberate hovers (≥200ms dwell), captured for elements wrapped in <PolishMonitor>.">Hovers</Th>
                   <Th tip="How many distinct pages this element appeared on.">Pages</Th>
                 </tr>
-              </thead>
-              <ElementsTableBody elements={elements} />
-            </table>
-            </div>
+              }
+            />
           )}
         </div>
       </Section>

@@ -18,7 +18,16 @@ const divider = `border-t ${border}`;
 const labelCls = "text-[11px] font-medium uppercase tracking-[0.08em] text-[#666]";
 
 // ── Tooltip + header cell (compact copies of the dashboard's, for the client) ──
-function InfoTip({ text, anchor = "right" }: { text: string; anchor?: "left" | "right" }) {
+function InfoTip({
+  text,
+  anchor = "right",
+  below = false,
+}: {
+  text: string;
+  anchor?: "left" | "right";
+  below?: boolean;
+}) {
+  const vClass = below ? "top-full mt-2" : "bottom-full mb-2";
   return (
     <span className="group/tip relative ml-1 inline-flex translate-y-px cursor-help align-middle">
       <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-[#444] text-[9px] font-bold leading-none text-[#666]">
@@ -26,9 +35,9 @@ function InfoTip({ text, anchor = "right" }: { text: string; anchor?: "left" | "
       </span>
       <span
         role="tooltip"
-        className={`pointer-events-none absolute bottom-full ${
+        className={`pointer-events-none absolute ${vClass} ${
           anchor === "left" ? "left-0" : "right-0"
-        } z-20 mb-2 w-64 rounded-lg border border-[#2e2e2e] bg-[#111] px-3 py-2 text-left text-[12px] font-normal normal-case leading-snug tracking-normal text-[#aaa] opacity-0 shadow-2xl transition-opacity duration-150 group-hover/tip:opacity-100`}
+        } z-20 w-64 max-w-[calc(100vw-2rem)] rounded-lg border border-[#2e2e2e] bg-[#111] px-3 py-2 text-left text-[12px] font-normal normal-case leading-snug tracking-normal text-[#aaa] opacity-0 shadow-2xl transition-opacity duration-150 group-hover/tip:opacity-100`}
       >
         {text}
       </span>
@@ -53,7 +62,7 @@ function Th({
     >
       <span className="inline-flex items-center gap-0.5">
         {children}
-        <InfoTip text={tip} anchor={align === "left" ? "left" : "right"} />
+        <InfoTip text={tip} anchor={align === "left" ? "left" : "right"} below />
       </span>
     </th>
   );
