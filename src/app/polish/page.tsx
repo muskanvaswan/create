@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { hasRegisteredPasskey, isAuthenticated } from "@/lib/auth";
+import { isAuthenticated } from "@/lib/auth";
 import {
   getDeviceBreakdown,
   getFrictionElements,
@@ -198,7 +198,7 @@ export default async function PolishDashboard() {
   // (Vercel sets NODE_ENV=production) still require authentication.
   const isLocalDev = process.env.NODE_ENV !== "production";
   if (!isLocalDev && !(await isAuthenticated())) {
-    return <PolishLogin canRegister={!hasRegisteredPasskey()} />;
+    return <PolishLogin />;
   }
 
   const [overview, pages, elements, devices, topUsed, journeys, errors, monitored] = await Promise.all([
