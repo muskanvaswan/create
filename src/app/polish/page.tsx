@@ -4,12 +4,14 @@ import { hasRegisteredPasskey, isAuthenticated } from "@/lib/auth";
 import {
   getDeviceBreakdown,
   getFrictionElements,
+  getMonitoredComponents,
   getOverview,
   getRecentErrors,
   getSessionJourneys,
   getTopInteractions,
   getTopPages,
   type DeviceBucket,
+  type MonitoredComponent,
 } from "@/polish/server/queries";
 import ElementsTableBody from "./elements";
 import TopFeaturesTableBody from "./features";
@@ -150,6 +152,45 @@ function Section({ title, children }: { title: React.ReactNode; children: React.
 }
 
 
+// ── Monitored components helpers ─────────────────────────────────────────────
+
+function fmtMs(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function MonitoredRow({ m }: { m: MonitoredComponent }) {
+  const hasFriction = m.rageClicks > 0 || m.deadClicks > 0;
+  return (
+    <tr className={`${divider} first:border-t-0 align-top`}>
+      <td className="py-2.5 pl-5 pr-6">
+        <div className="flex items-center gap-2">
+          <span className="text-[13px] font-medium text-white">{m.name}</span>
+          <span className="rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider bg-purple-950 text-purple-400">
+            monitored
+          </span>
+          {hasFriction && (
+            <span className="rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider bg-red-950 text-red-400">
+              friction
+            </span>
+          )}
+        </div>
+        <div className="mt-0.5 text-[11px] text-[#555]">
+          {m.sessions} {m.sessions === 1 ? "session" : "sessions"} · {m.pages}{" "}
+          {m.pages === 1 ? "page" : "pages"}
+        </div>
+      </td>
+      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">{m.clicks}</td>
+      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">{m.rageClicks > 0 ? <span className="text-red-400">{m.rageClicks}</span> : <span className="text-[#444]">—</span>}</td>
+      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">{m.deadClicks > 0 ? <span className="text-[#f5a623]">{m.deadClicks}</span> : <span className="text-[#444]">—</span>}</td>
+      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">{m.hovers}</td>
+      <td className="py-2.5 pl-4 pr-5 text-right text-[13px] tabular-nums text-[#555]">
+        {m.avgHoverMs !== null ? fmtMs(m.avgHoverMs) : <span className="text-[#444]">—</span>}
+      </td>
+    </tr>
+  );
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default async function PolishDashboard() {
   // Local development runs against the SQLite store with no real visitors, so a
@@ -160,7 +201,7 @@ export default async function PolishDashboard() {
     return <PolishLogin canRegister={!hasRegisteredPasskey()} />;
   }
 
-  const [overview, pages, elements, devices, topUsed, journeys, errors] = await Promise.all([
+  const [overview, pages, elements, devices, topUsed, journeys, errors, monitored] = await Promise.all([
     getOverview(),
     getTopPages(8),
     getFrictionElements(12),
@@ -168,6 +209,7 @@ export default async function PolishDashboard() {
     getTopInteractions(12),
     getSessionJourneys(6),
     getRecentErrors(8),
+    getMonitoredComponents(),
   ]);
 
   return (
@@ -328,6 +370,46 @@ export default async function PolishDashboard() {
         </div>
       </Section>
 
+      {/* Monitored components */}
+      <Section
+        title={
+          <>
+            Monitored components
+            <InfoTip
+              anchor="left"
+              text="Components explicitly wrapped in <PolishMonitor>. These are the elements you chose to watch — each row shows the full interaction picture: clicks, friction, and hover dwell. A high hover count with few clicks often signals hesitation."
+            />
+          </>
+        }
+      >
+        <div className={card}>
+          {monitored.length === 0 ? (
+            <p className="px-5 py-8 text-center text-[13px] text-[#555]">
+              No monitored components yet — wrap elements with{" "}
+              <code className="font-mono text-[#777]">{"<PolishMonitor name=\"…\">"}</code> to track them here.
+            </p>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr>
+                  <Th align="left" tip="The name prop passed to <PolishMonitor>. Sessions and pages shown beneath.">Component</Th>
+                  <Th tip="Normal (non-rage, non-dead) clicks.">Clicks</Th>
+                  <Th tip="3+ rapid clicks in 500ms — frustration signal.">Rage</Th>
+                  <Th tip="Clicks on non-interactive targets — confusion signal.">Dead</Th>
+                  <Th tip="Deliberate hovers (≥200ms dwell) on this component.">Hovers</Th>
+                  <Th tip="Average time the pointer rested before leaving or clicking.">Avg dwell</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {monitored.map((m) => (
+                  <MonitoredRow key={m.name} m={m} />
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </Section>
+
       {/* Element breakdown */}
       <Section
         title={
@@ -356,6 +438,7 @@ export default async function PolishDashboard() {
                   <Th tip="Normal (non-rage, non-dead) clicks.">Clicks</Th>
                   <Th tip="Rage clicks on this element.">Rage</Th>
                   <Th tip="Dead clicks on this element.">Dead</Th>
+                  <Th tip="Deliberate hovers (≥200ms dwell), captured for elements wrapped in <PolishMonitor>.">Hovers</Th>
                   <Th tip="How many distinct pages this element appeared on.">Pages</Th>
                 </tr>
               </thead>

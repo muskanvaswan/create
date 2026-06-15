@@ -54,6 +54,9 @@ function ElementRow({ el }: { el: FrictionElement }) {
       <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">{el.clicks}</td>
       <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">{el.rageClicks}</td>
       <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">{el.deadClicks}</td>
+      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">
+        {el.hovers > 0 ? el.hovers : <span className="text-[#444]">—</span>}
+      </td>
       <td className="py-2.5 pl-4 pr-5 text-right text-[13px] tabular-nums text-[#888]">{el.pages}</td>
     </tr>
   );
@@ -74,7 +77,7 @@ export default function ElementsTableBody({ elements }: { elements: FrictionElem
       {hidden > 0 && (
         <tfoot>
           <tr className={divider}>
-            <td colSpan={6} className="px-5 py-2.5 text-center">
+            <td colSpan={7} className="px-5 py-2.5 text-center">
               <button
                 type="button"
                 onClick={() => setExpanded((v) => !v)}

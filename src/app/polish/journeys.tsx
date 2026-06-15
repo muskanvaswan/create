@@ -100,6 +100,7 @@ const STEP_STYLE: Record<
   scroll_depth: { dot: "bg-[#444]", verb: "Scrolled", verbTone: "text-[#888]" },
   viewport: { dot: "bg-[#444]", verb: "Viewport", verbTone: "text-[#888]" },
   web_vital: { dot: "bg-[#444]", verb: "Web vital", verbTone: "text-[#888]" },
+  hover: { dot: "bg-purple-500", verb: "Hovered", verbTone: "text-purple-400" },
 };
 
 function JourneyStepRow({

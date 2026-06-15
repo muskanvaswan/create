@@ -55,6 +55,8 @@ export interface FrictionElement {
   clicks: number;
   rageClicks: number;
   deadClicks: number;
+  /** Deliberate hovers (≥200ms dwell) on this element, via <PolishMonitor>. */
+  hovers: number;
   /** Composite friction score; higher = worse. */
   score: number;
   /** Client timestamp of the most recent interaction with this element, ms. */
@@ -319,9 +321,10 @@ export async function getFrictionElements(limit = 12): Promise<FrictionElement[]
        SUM(CASE WHEN type = 'click'      THEN 1 ELSE 0 END)             AS clicks,
        SUM(CASE WHEN type = 'rage_click' THEN 1 ELSE 0 END)             AS "rageClicks",
        SUM(CASE WHEN type = 'dead_click' THEN 1 ELSE 0 END)             AS "deadClicks",
+       SUM(CASE WHEN type = 'hover'      THEN 1 ELSE 0 END)             AS hovers,
        MAX(ts)                                                          AS "lastTs"
      FROM events
-     WHERE type IN ('click', 'rage_click', 'dead_click')
+     WHERE type IN ('click', 'rage_click', 'dead_click', 'hover')
      GROUP BY COALESCE(component, selector, '(unknown)')`,
   );
 
@@ -339,6 +342,7 @@ export async function getFrictionElements(limit = 12): Promise<FrictionElement[]
         clicks,
         rageClicks,
         deadClicks,
+        hovers: num(r, "hovers"),
         score: Math.round((rageClicks * 3 + deadClicks * 2) * 10) / 10,
         lastInteraction: num(r, "lastTs"),
       };
@@ -610,6 +614,68 @@ export async function getSessionJourneys(limit = 6): Promise<SessionJourney[]> {
       score: s.score,
       steps,
       truncated: steps.length >= MAX_JOURNEY_STEPS,
+    };
+  });
+}
+
+/** One explicitly-monitored component (wrapped in <PolishMonitor>). */
+export interface MonitoredComponent {
+  /** The name passed to <PolishMonitor name="...">. */
+  name: string;
+  /** Normal clicks attributed to this component. */
+  clicks: number;
+  rageClicks: number;
+  deadClicks: number;
+  /** Deliberate hovers recorded (≥200ms dwell). */
+  hovers: number;
+  /** Average hover dwell time in ms. Null when no hover data. */
+  avgHoverMs: number | null;
+  /** Distinct sessions that interacted with this component. */
+  sessions: number;
+  /** Distinct pages the component appeared on. */
+  pages: number;
+}
+
+/**
+ * Fetch all components explicitly wrapped in <PolishMonitor>. The definitive
+ * marker is the presence of at least one "hover" event for that component name
+ * (hover events are only emitted by PolishMonitor). We then pull all event
+ * types for those components so the table shows the complete interaction picture.
+ */
+export async function getMonitoredComponents(): Promise<MonitoredComponent[]> {
+  if (!(await storeReady())) return [];
+
+  const rows = await query(
+    `SELECT
+       component                                                        AS name,
+       SUM(CASE WHEN type = 'click'      THEN 1 ELSE 0 END)            AS clicks,
+       SUM(CASE WHEN type = 'rage_click' THEN 1 ELSE 0 END)            AS "rageClicks",
+       SUM(CASE WHEN type = 'dead_click' THEN 1 ELSE 0 END)            AS "deadClicks",
+       SUM(CASE WHEN type = 'hover'      THEN 1 ELSE 0 END)            AS hovers,
+       AVG(CASE WHEN type = 'hover'      THEN value END)               AS "avgHoverMs",
+       COUNT(DISTINCT session_id)                                       AS sessions,
+       COUNT(DISTINCT path)                                             AS pages
+     FROM events
+     WHERE component IN (
+       SELECT DISTINCT component FROM events
+       WHERE type = 'hover' AND component IS NOT NULL
+     )
+     GROUP BY component
+     ORDER BY hovers DESC`,
+  );
+
+  return rows.map((r): MonitoredComponent => {
+    const avg = r.avgHoverMs;
+    const avgNum = typeof avg === "number" ? avg : typeof avg === "string" ? Number(avg) : NaN;
+    return {
+      name: r.name as string,
+      clicks: num(r, "clicks"),
+      rageClicks: num(r, "rageClicks"),
+      deadClicks: num(r, "deadClicks"),
+      hovers: num(r, "hovers"),
+      avgHoverMs: Number.isFinite(avgNum) ? Math.round(avgNum) : null,
+      sessions: num(r, "sessions"),
+      pages: num(r, "pages"),
     };
   });
 }
