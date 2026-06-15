@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { isAuthenticated } from "@/lib/auth";
+import { hasRegisteredPasskey, isAuthenticated } from "@/lib/auth";
 import { listNotes, loadFolders } from "@/lib/notes-store";
 import { GlassWindow } from "@/app/_components/glass-window";
 import { AdminLogin } from "./login";
@@ -17,7 +17,7 @@ export default async function AdminPage() {
   if (!(await isAuthenticated())) {
     return (
       <GlassWindow>
-        <AdminLogin />
+        <AdminLogin hasPasskey={hasRegisteredPasskey()} />
       </GlassWindow>
     );
   }

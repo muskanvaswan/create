@@ -4,15 +4,33 @@ import { startAuthentication, startRegistration } from "@simplewebauthn/browser"
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export function PolishLogin({ canRegister }: { canRegister: boolean }) {
+export function PolishLogin({ hasPasskey }: { hasPasskey: boolean }) {
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<null | "password" | "passkey">(null);
   const [error, setError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [credentialEnv, setCredentialEnv] = useState<string | null>(null);
 
-  const run = async (flow: "register" | "login") => {
-    setBusy(true);
+  const signInWithPassword = async () => {
+    setBusy("password");
+    setError(null);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "Invalid password");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const runPasskey = async (flow: "register" | "login") => {
+    setBusy("passkey");
     setError(null);
     try {
       const optionsRes = await fetch(`/api/auth/${flow}-options`, {
@@ -40,7 +58,7 @@ export function PolishLogin({ canRegister }: { canRegister: boolean }) {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
 
@@ -82,7 +100,7 @@ export function PolishLogin({ canRegister }: { canRegister: boolean }) {
     );
   }
 
-  // ── Login / register ─────────────────────────────────────────────────────
+  // ── Login ────────────────────────────────────────────────────────────────
   return (
     <div className="flex min-h-dvh items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-lg border border-[#2e2e2e] bg-[#0a0a0a] px-8 py-10">
@@ -91,33 +109,45 @@ export function PolishLogin({ canRegister }: { canRegister: boolean }) {
         </p>
         <h1 className="text-[17px] font-semibold text-white">Friction Dashboard</h1>
         <p className="mt-1.5 text-[13px] text-[#666]">
-          {canRegister
-            ? "Enter the setup password, then create a passkey to claim this dashboard."
-            : "Sign in with your passkey to continue."}
+          {hasPasskey
+            ? "Enter your password, or sign in with your passkey."
+            : "Enter your password to continue. You can also create a passkey for this device."}
         </p>
 
         <div className="mt-6 flex flex-col gap-3">
-          {canRegister && (
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && run("register")}
-              placeholder="Setup password"
-              autoComplete="off"
-              className="w-full rounded-md border border-[#2e2e2e] bg-[#111] px-3 py-2 text-[13px] text-white outline-none placeholder:text-[#444] focus:border-[#555]"
-            />
-          )}
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && signInWithPassword()}
+            placeholder="Password"
+            autoComplete="current-password"
+            className="w-full rounded-md border border-[#2e2e2e] bg-[#111] px-3 py-2 text-[13px] text-white outline-none placeholder:text-[#444] focus:border-[#555]"
+          />
           <button
-            onClick={() => run(canRegister ? "register" : "login")}
-            disabled={busy}
+            onClick={signInWithPassword}
+            disabled={busy !== null}
             className="w-full rounded-md bg-white py-2 text-[13px] font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-40"
           >
-            {busy
+            {busy === "password" ? "Signing in…" : "Sign in"}
+          </button>
+
+          <div className="flex items-center gap-3 text-[11px] text-[#555]">
+            <span className="h-px flex-1 bg-[#2e2e2e]" />
+            or
+            <span className="h-px flex-1 bg-[#2e2e2e]" />
+          </div>
+
+          <button
+            onClick={() => runPasskey(hasPasskey ? "login" : "register")}
+            disabled={busy !== null}
+            className="w-full rounded-md border border-[#2e2e2e] bg-transparent py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#111] disabled:opacity-40"
+          >
+            {busy === "passkey"
               ? "Waiting for passkey…"
-              : canRegister
-                ? "Create passkey"
-                : "Sign in with passkey"}
+              : hasPasskey
+                ? "Sign in with passkey"
+                : "Create passkey"}
           </button>
         </div>
 
