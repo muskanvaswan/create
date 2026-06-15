@@ -55,6 +55,8 @@ export interface FrictionElement {
   clicks: number;
   rageClicks: number;
   deadClicks: number;
+  /** Deliberate hovers (≥200ms dwell) on this element, via <PolishMonitor>. */
+  hovers: number;
   /** Composite friction score; higher = worse. */
   score: number;
   /** Client timestamp of the most recent interaction with this element, ms. */
@@ -319,9 +321,10 @@ export async function getFrictionElements(limit = 12): Promise<FrictionElement[]
        SUM(CASE WHEN type = 'click'      THEN 1 ELSE 0 END)             AS clicks,
        SUM(CASE WHEN type = 'rage_click' THEN 1 ELSE 0 END)             AS "rageClicks",
        SUM(CASE WHEN type = 'dead_click' THEN 1 ELSE 0 END)             AS "deadClicks",
+       SUM(CASE WHEN type = 'hover'      THEN 1 ELSE 0 END)             AS hovers,
        MAX(ts)                                                          AS "lastTs"
      FROM events
-     WHERE type IN ('click', 'rage_click', 'dead_click')
+     WHERE type IN ('click', 'rage_click', 'dead_click', 'hover')
      GROUP BY COALESCE(component, selector, '(unknown)')`,
   );
 
@@ -339,6 +342,7 @@ export async function getFrictionElements(limit = 12): Promise<FrictionElement[]
         clicks,
         rageClicks,
         deadClicks,
+        hovers: num(r, "hovers"),
         score: Math.round((rageClicks * 3 + deadClicks * 2) * 10) / 10,
         lastInteraction: num(r, "lastTs"),
       };
@@ -610,63 +614,6 @@ export async function getSessionJourneys(limit = 6): Promise<SessionJourney[]> {
       score: s.score,
       steps,
       truncated: steps.length >= MAX_JOURNEY_STEPS,
-    };
-  });
-}
-
-/** One row in the hover-engagement breakdown — one monitored component. */
-export interface HoverStat {
-  /** The data-component name set by PolishMonitor. */
-  component: string;
-  /** Total hover events recorded (each ≥200ms dwell). */
-  hovers: number;
-  /** Average dwell time in ms. */
-  avgMs: number;
-  /** Longest single dwell in ms. */
-  maxMs: number;
-  /** Distinct sessions that hovered. */
-  sessions: number;
-  /** Distinct pages where the component was hovered. */
-  pages: number;
-}
-
-/**
- * Hover-engagement breakdown. Ranks explicitly-monitored components (those
- * wrapped in <PolishMonitor>) by how often users hover over them and how long
- * they dwell. Useful for gauging interest in interactive elements before
- * a click is ever made.
- */
-export async function getHoverEngagement(limit = 12): Promise<HoverStat[]> {
-  if (!(await storeReady())) return [];
-
-  const rows = await query(
-    `SELECT
-       component,
-       COUNT(*)                    AS hovers,
-       AVG(value)                  AS "avgMs",
-       MAX(value)                  AS "maxMs",
-       COUNT(DISTINCT session_id)  AS sessions,
-       COUNT(DISTINCT path)        AS pages
-     FROM events
-     WHERE type = 'hover' AND component IS NOT NULL
-     GROUP BY component
-     ORDER BY hovers DESC
-     LIMIT ?`,
-    [limit],
-  );
-
-  return rows.map((r): HoverStat => {
-    const avg = r.avgMs;
-    const avgNum = typeof avg === "number" ? avg : typeof avg === "string" ? Number(avg) : NaN;
-    const max = r.maxMs;
-    const maxNum = typeof max === "number" ? max : typeof max === "string" ? Number(max) : NaN;
-    return {
-      component: r.component as string,
-      hovers: num(r, "hovers"),
-      avgMs: Number.isFinite(avgNum) ? Math.round(avgNum) : 0,
-      maxMs: Number.isFinite(maxNum) ? Math.round(maxNum) : 0,
-      sessions: num(r, "sessions"),
-      pages: num(r, "pages"),
     };
   });
 }
