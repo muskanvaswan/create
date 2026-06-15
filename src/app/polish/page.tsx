@@ -186,6 +186,9 @@ function MonitoredRow({ m }: { m: MonitoredComponent }) {
         </div>
       </td>
       {/* Viewport engagement */}
+      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">
+        {m.mounts > 0 ? m.mounts : <span className="text-[#444]">—</span>}
+      </td>
       <td className="py-2.5 px-4 text-right text-[13px] font-semibold tabular-nums text-white">
         {m.componentViews > 0 ? m.componentViews : <span className="font-normal text-[#444]">—</span>}
       </td>
@@ -361,10 +364,11 @@ export default async function PolishDashboard() {
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px]">
+              <table className="w-full min-w-[700px]">
                 <thead>
                   <tr>
                     <Th align="left" tip="The name prop passed to <PolishMonitor>. Sessions and pages shown beneath.">Component</Th>
+                    <Th tip="Times this region rendered (mount events). Only content-tracked monitors emit these.">Mounts</Th>
                     <Th tip="Times this component entered the viewport for ≥500ms.">Views</Th>
                     <Th tip="Average time visible per viewport visit — a proxy for reading/engagement time.">Avg time</Th>
                     <Th tip="Average % of the component's height scrolled through per visit. 100% = user reached the bottom.">Scroll depth</Th>

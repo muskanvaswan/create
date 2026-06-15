@@ -3,20 +3,30 @@
 /**
  * PolishMonitor — explicit component-level tracking for Polish.
  *
- * Drop this around any element you want to monitor. It auto-detects what can
- * be tracked based on child element types, then captures:
+ * Drop this around any element you want to monitor. Two tiers of tracking:
  *
+ * Always on (cheap, suits interactive controls like buttons):
  *  • hover   — pointer dwell time (≥200ms), value = ms
+ *  • child clicks/rage/dead — attributed automatically via data-component and
+ *    the existing global Polish click capture, no extra wiring needed.
+ *
+ * Opt-in with `content` (for content regions like an article body):
+ *  • mount   — fired once when the region renders, so you can count how often
+ *    it was opened/shown.
  *  • component_view — time in the viewport per visit, value = ms, meta includes:
  *      width, height (px), scrollDepth (% of component scrolled through),
  *      views (how many times it entered the viewport)
  *
- * Child clicks/rage/dead are attributed automatically via data-component
- * and the existing global Polish click capture — no extra wiring needed.
+ * Leave `content` off for clickable elements so we don't measure meaningless
+ * height/scroll/viewport data on them.
  *
  * Usage:
- *   <PolishMonitor name="listen-button">
+ *   <PolishMonitor name="listen-button">          // hover + click only
  *     <ListenButton src={src} />
+ *   </PolishMonitor>
+ *
+ *   <PolishMonitor name={slug} content>            // + mount, view, scroll, height
+ *     <Article />
  *   </PolishMonitor>
  */
 
@@ -36,6 +46,13 @@ type Props = {
   name: string;
   children: React.ReactNode;
   className?: string;
+  /**
+   * Treat this as a content region: emit a `mount` event and track viewport
+   * time, scroll depth, and rendered height (component_view). Leave off
+   * (default) for interactive controls like buttons, where only hover + click
+   * attribution is wanted.
+   */
+  content?: boolean;
 };
 
 /** Find the nearest ancestor that scrolls on the y-axis. */
@@ -49,7 +66,7 @@ function findScrollParent(el: HTMLElement): HTMLElement | Window {
   return window;
 }
 
-export function PolishMonitor({ name, children, className }: Props) {
+export function PolishMonitor({ name, children, className, content = false }: Props) {
   const ref = useRef<HTMLSpanElement>(null);
   const hoverStart = useRef<number | null>(null);
 
@@ -60,12 +77,13 @@ export function PolishMonitor({ name, children, className }: Props) {
     // Auto-detect what's trackable and annotate for devtools.
     const hasButtons = el.querySelectorAll("button").length > 0;
     const hasLinks = el.querySelectorAll("a").length > 0;
-    const kinds: string[] = ["hover", "view"];
+    const kinds: string[] = ["hover"];
+    if (content) kinds.push("mount", "view");
     if (hasButtons) kinds.push("click");
     if (hasLinks) kinds.push("link");
     el.dataset.polishTracks = kinds.join(",");
 
-    // ── Hover tracking ──────────────────────────────────────────────────────
+    // ── Hover tracking (always on) ──────────────────────────────────────────
     const onEnter = () => { hoverStart.current = Date.now(); };
     const onLeave = () => {
       if (hoverStart.current === null) return;
@@ -74,6 +92,20 @@ export function PolishMonitor({ name, children, className }: Props) {
       if (ms < 200) return;
       window.__polishTrack?.({ type: "hover", component: name, value: ms });
     };
+    el.addEventListener("pointerenter", onEnter);
+    el.addEventListener("pointerleave", onLeave);
+
+    // Interactive controls (the default) stop here — no viewport/scroll/mount.
+    if (!content) {
+      return () => {
+        el.removeEventListener("pointerenter", onEnter);
+        el.removeEventListener("pointerleave", onLeave);
+      };
+    }
+
+    // ── Content-region tracking (content=true only) ─────────────────────────
+    // Record that the region rendered, so we can count how often it was shown.
+    window.__polishTrack?.({ type: "mount", component: name });
 
     // ── Viewport / focus tracking ───────────────────────────────────────────
     // visibleSince: when this viewport visit started (null = not visible)
@@ -159,9 +191,6 @@ export function PolishMonitor({ name, children, className }: Props) {
     const scrollParent = findScrollParent(el);
     scrollParent.addEventListener("scroll", refreshScrollDepth, { passive: true } as EventListenerOptions);
 
-    el.addEventListener("pointerenter", onEnter);
-    el.addEventListener("pointerleave", onLeave);
-
     return () => {
       emitView(); // flush remaining time on unmount / name change
       observer.disconnect();
@@ -169,7 +198,7 @@ export function PolishMonitor({ name, children, className }: Props) {
       el.removeEventListener("pointerenter", onEnter);
       el.removeEventListener("pointerleave", onLeave);
     };
-  }, [name]);
+  }, [name, content]);
 
   return (
     <span ref={ref} data-component={name} className={className}>
