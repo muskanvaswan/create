@@ -117,8 +117,8 @@ const DEVICE_META: Record<string, { label: string; icon: string }> = {
 function DeviceRow({ bucket }: { bucket: DeviceBucket }) {
   const meta = DEVICE_META[bucket.category] ?? { label: bucket.category, icon: "▫" };
   return (
-    <div className={`flex items-center gap-3 px-5 py-3 ${divider} first:border-t-0`}>
-      <span className="w-20 shrink-0 text-[13px] font-medium capitalize text-white">
+    <div className={`flex items-center gap-3 px-4 py-3 sm:px-5 ${divider} first:border-t-0`}>
+      <span className="w-16 shrink-0 text-[13px] font-medium capitalize text-white sm:w-20">
         {meta.label}
       </span>
       <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#1a1a1a]">
@@ -127,13 +127,13 @@ function DeviceRow({ bucket }: { bucket: DeviceBucket }) {
           style={{ width: `${Math.max(bucket.pct, 1.5)}%` }}
         />
       </div>
-      <span className="w-12 shrink-0 text-right text-[13px] font-semibold tabular-nums text-white">
+      <span className="w-10 shrink-0 text-right text-[13px] font-semibold tabular-nums text-white sm:w-12">
         {bucket.pct}%
       </span>
-      <span className="w-28 shrink-0 text-right text-[12px] tabular-nums text-[#666]">
+      <span className="hidden w-28 shrink-0 text-right text-[12px] tabular-nums text-[#666] sm:block">
         {bucket.sessions} {bucket.sessions === 1 ? "session" : "sessions"}
       </span>
-      <span className="w-20 shrink-0 text-right text-[12px] tabular-nums text-[#555]">
+      <span className="hidden w-20 shrink-0 text-right text-[12px] tabular-nums text-[#555] sm:block">
         {bucket.avgWidth === null ? "—" : `~${bucket.avgWidth}px`}
       </span>
     </div>
@@ -213,7 +213,7 @@ export default async function PolishDashboard() {
   ]);
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10 text-white">
+    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10 text-white">
       {/* Header */}
       <div className={`mb-8 flex items-start justify-between border-b ${border} pb-6`}>
         <div>
@@ -355,7 +355,8 @@ export default async function PolishDashboard() {
               No clicks captured yet — browse the site then refresh.
             </p>
           ) : (
-            <table className="w-full">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[420px]">
               <thead>
                 <tr>
                   <Th align="left" tip="Component name (from data-component) or DOM selector. Sample text and selector shown beneath.">Element</Th>
@@ -366,6 +367,7 @@ export default async function PolishDashboard() {
               </thead>
               <TopFeaturesTableBody features={topUsed} />
             </table>
+            </div>
           )}
         </div>
       </Section>
@@ -389,7 +391,8 @@ export default async function PolishDashboard() {
               <code className="font-mono text-[#777]">{"<PolishMonitor name=\"…\">"}</code> to track them here.
             </p>
           ) : (
-            <table className="w-full">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[500px]">
               <thead>
                 <tr>
                   <Th align="left" tip="The name prop passed to <PolishMonitor>. Sessions and pages shown beneath.">Component</Th>
@@ -406,6 +409,7 @@ export default async function PolishDashboard() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </Section>
@@ -430,7 +434,8 @@ export default async function PolishDashboard() {
               for richer labels.
             </p>
           ) : (
-            <table className="w-full">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px]">
               <thead>
                 <tr>
                   <Th align="left" tip="Component name (from data-component) or DOM selector. Sample text and selector shown beneath.">Element</Th>
@@ -444,6 +449,7 @@ export default async function PolishDashboard() {
               </thead>
               <ElementsTableBody elements={elements} />
             </table>
+            </div>
           )}
         </div>
       </Section>

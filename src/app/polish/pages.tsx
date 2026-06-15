@@ -247,7 +247,7 @@ function PageDrawer({ page, onClose }: { page: TopPage | null; onClose: () => vo
           role="dialog"
           aria-modal="true"
           aria-label="Page sessions over time"
-          className={`mx-auto max-h-[80vh] max-w-5xl overflow-y-auto rounded-t-xl border ${border} bg-[#0a0a0a] px-6 pb-8 pt-5 shadow-2xl`}
+          className={`mx-auto max-h-[80vh] max-w-5xl overflow-y-auto rounded-t-xl border ${border} bg-[#0a0a0a] px-4 pb-6 pt-4 shadow-2xl sm:px-6 sm:pb-8 sm:pt-5`}
         >
           {page && (
             <>
@@ -314,7 +314,8 @@ export default function TopPagesTable({ pages }: { pages: TopPage[] }) {
             No data yet — browse the site then refresh.
           </p>
         ) : (
-          <table className="w-full">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px]">
             <thead>
               <tr>
                 <Th align="left" tip="The route. Click a row to see its sessions over time.">
@@ -336,6 +337,7 @@ export default function TopPagesTable({ pages }: { pages: TopPage[] }) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
       <PageDrawer page={selected} onClose={() => setSelected(null)} />
