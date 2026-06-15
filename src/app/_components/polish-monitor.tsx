@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * TrackingWrapper — explicit component-level tracking for Polish.
+ * PolishMonitor — explicit component-level tracking for Polish.
  *
  * Drop this around any element you want to monitor. It:
  *   1. Sets data-component so Polish attributes every child click to `name`.
@@ -11,9 +11,9 @@
  *      specific UI regions in the Polish dashboard.
  *
  * Usage:
- *   <TrackingWrapper name="listen-button">
+ *   <PolishMonitor name="listen-button">
  *     <ListenButton src={src} />
- *   </TrackingWrapper>
+ *   </PolishMonitor>
  */
 
 import { useEffect, useRef } from "react";
@@ -34,7 +34,7 @@ type Props = {
   className?: string;
 };
 
-export function TrackingWrapper({ name, children, className }: Props) {
+export function PolishMonitor({ name, children, className }: Props) {
   const ref = useRef<HTMLSpanElement>(null);
   const hoverStart = useRef<number | null>(null);
 

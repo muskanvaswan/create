@@ -614,6 +614,63 @@ export async function getSessionJourneys(limit = 6): Promise<SessionJourney[]> {
   });
 }
 
+/** One row in the hover-engagement breakdown — one monitored component. */
+export interface HoverStat {
+  /** The data-component name set by PolishMonitor. */
+  component: string;
+  /** Total hover events recorded (each ≥200ms dwell). */
+  hovers: number;
+  /** Average dwell time in ms. */
+  avgMs: number;
+  /** Longest single dwell in ms. */
+  maxMs: number;
+  /** Distinct sessions that hovered. */
+  sessions: number;
+  /** Distinct pages where the component was hovered. */
+  pages: number;
+}
+
+/**
+ * Hover-engagement breakdown. Ranks explicitly-monitored components (those
+ * wrapped in <PolishMonitor>) by how often users hover over them and how long
+ * they dwell. Useful for gauging interest in interactive elements before
+ * a click is ever made.
+ */
+export async function getHoverEngagement(limit = 12): Promise<HoverStat[]> {
+  if (!(await storeReady())) return [];
+
+  const rows = await query(
+    `SELECT
+       component,
+       COUNT(*)                    AS hovers,
+       AVG(value)                  AS "avgMs",
+       MAX(value)                  AS "maxMs",
+       COUNT(DISTINCT session_id)  AS sessions,
+       COUNT(DISTINCT path)        AS pages
+     FROM events
+     WHERE type = 'hover' AND component IS NOT NULL
+     GROUP BY component
+     ORDER BY hovers DESC
+     LIMIT ?`,
+    [limit],
+  );
+
+  return rows.map((r): HoverStat => {
+    const avg = r.avgMs;
+    const avgNum = typeof avg === "number" ? avg : typeof avg === "string" ? Number(avg) : NaN;
+    const max = r.maxMs;
+    const maxNum = typeof max === "number" ? max : typeof max === "string" ? Number(max) : NaN;
+    return {
+      component: r.component as string,
+      hovers: num(r, "hovers"),
+      avgMs: Number.isFinite(avgNum) ? Math.round(avgNum) : 0,
+      maxMs: Number.isFinite(maxNum) ? Math.round(maxNum) : 0,
+      sessions: num(r, "sessions"),
+      pages: num(r, "pages"),
+    };
+  });
+}
+
 export async function getRecentErrors(limit = 10): Promise<RecentError[]> {
   const rows = await query(
     `SELECT path, component, meta, ts

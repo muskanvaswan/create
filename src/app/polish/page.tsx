@@ -4,12 +4,14 @@ import { hasRegisteredPasskey, isAuthenticated } from "@/lib/auth";
 import {
   getDeviceBreakdown,
   getFrictionElements,
+  getHoverEngagement,
   getOverview,
   getRecentErrors,
   getSessionJourneys,
   getTopInteractions,
   getTopPages,
   type DeviceBucket,
+  type HoverStat,
 } from "@/polish/server/queries";
 import ElementsTableBody from "./elements";
 import TopFeaturesTableBody from "./features";
@@ -150,6 +152,38 @@ function Section({ title, children }: { title: React.ReactNode; children: React.
 }
 
 
+// ── Hover engagement helpers ─────────────────────────────────────────────────
+
+function fmtMs(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function HoverRow({ stat }: { stat: HoverStat }) {
+  return (
+    <tr className={`${divider} first:border-t-0`}>
+      <td className="py-3 pl-5 pr-6">
+        <span className="text-[13px] font-medium text-white">{stat.component}</span>
+        <span className="ml-2 rounded-sm bg-purple-950 px-1.5 py-0.5 text-[10px] font-medium text-purple-400">
+          monitored
+        </span>
+      </td>
+      <td className="px-4 py-3 text-right text-[13px] tabular-nums text-white">
+        {stat.hovers.toLocaleString()}
+      </td>
+      <td className="px-4 py-3 text-right text-[13px] tabular-nums text-[#aaa]">
+        {fmtMs(stat.avgMs)}
+      </td>
+      <td className="px-4 py-3 text-right text-[13px] tabular-nums text-[#666]">
+        {fmtMs(stat.maxMs)}
+      </td>
+      <td className="px-4 py-3 text-right text-[13px] tabular-nums text-[#666]">
+        {stat.sessions}
+      </td>
+    </tr>
+  );
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default async function PolishDashboard() {
   // Local development runs against the SQLite store with no real visitors, so a
@@ -160,7 +194,7 @@ export default async function PolishDashboard() {
     return <PolishLogin canRegister={!hasRegisteredPasskey()} />;
   }
 
-  const [overview, pages, elements, devices, topUsed, journeys, errors] = await Promise.all([
+  const [overview, pages, elements, devices, topUsed, journeys, errors, hovers] = await Promise.all([
     getOverview(),
     getTopPages(8),
     getFrictionElements(12),
@@ -168,6 +202,7 @@ export default async function PolishDashboard() {
     getTopInteractions(12),
     getSessionJourneys(6),
     getRecentErrors(8),
+    getHoverEngagement(12),
   ]);
 
   return (
@@ -360,6 +395,45 @@ export default async function PolishDashboard() {
                 </tr>
               </thead>
               <ElementsTableBody elements={elements} />
+            </table>
+          )}
+        </div>
+      </Section>
+
+      {/* Hover engagement */}
+      <Section
+        title={
+          <>
+            Hover engagement
+            <InfoTip
+              anchor="left"
+              text="Components wrapped in <PolishMonitor> that users deliberately hovered (≥200ms dwell). Sorted by hover count. Avg dwell shows how long users pause before acting — a high avg often means hesitation or discovery."
+            />
+          </>
+        }
+      >
+        <div className={card}>
+          {hovers.length === 0 ? (
+            <p className="px-5 py-8 text-center text-[13px] text-[#555]">
+              No hover data yet — wrap elements with{" "}
+              <code className="font-mono text-[#777]">{"<PolishMonitor>"}</code> then browse the site.
+            </p>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr>
+                  <Th align="left" tip="Component name passed to the name prop of <PolishMonitor>.">Component</Th>
+                  <Th tip="Total hover events (≥200ms dwell each).">Hovers</Th>
+                  <Th tip="Average time the pointer rested on this component before leaving.">Avg dwell</Th>
+                  <Th tip="Longest single hover recorded.">Max dwell</Th>
+                  <Th tip="Distinct sessions that hovered over this component.">Sessions</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {hovers.map((h: HoverStat) => (
+                  <HoverRow key={h.component} stat={h} />
+                ))}
+              </tbody>
             </table>
           )}
         </div>

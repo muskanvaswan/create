@@ -21,8 +21,7 @@ import {
 import { Pill } from "./pill";
 import { TrafficLights } from "./traffic-lights";
 import { ListenButton } from "./listen-button";
-import { TrackingWrapper } from "./tracking-wrapper";
-
+import { PolishMonitor } from "./polish-monitor";
 /** iOS-style glass surface used by the mobile buttons and search bar. */
 const mobileGlass =
   "border border-black/10 bg-gradient-to-br from-white/95 to-white/65 shadow-md backdrop-blur-xl dark:border-white/[0.12] dark:from-white/[0.18] dark:to-white/[0.06]";
@@ -288,9 +287,9 @@ export function NotesApp({ notes, children }: Props) {
               <Pill>
                 {activeNote && activeNote.hasAudio && (
                   <>
-                    <TrackingWrapper name="listen-button">
+                    <PolishMonitor name="listen-button">
                       <ListenButton src={`/api/audio/${activeNote.slug}`} />
-                    </TrackingWrapper>
+                    </PolishMonitor>
                     <div className="h-4 w-px bg-black/10 dark:bg-white/10 mx-1" />
                   </>
                 )}
@@ -420,9 +419,9 @@ export function NotesApp({ notes, children }: Props) {
                 <div className="flex items-center gap-2.5">
                   {activeNote?.hasAudio && (
                     <span className={cn("flex h-10 items-center rounded-full px-2", mobileGlass)}>
-                      <TrackingWrapper name="listen-button">
+                      <PolishMonitor name="listen-button">
                         <ListenButton src={`/api/audio/${activeNote.slug}`} />
-                      </TrackingWrapper>
+                      </PolishMonitor>
                     </span>
                   )}
                   <span className={cn("flex h-10 w-10 items-center justify-center rounded-full", mobileGlass)}>
