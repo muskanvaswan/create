@@ -21,6 +21,7 @@ export type PolishEventType =
   | "js_error" // an uncaught error or unhandled rejection
   | "web_vital" // a Core Web Vital sample (LCP, CLS, INP)
   | "hover" // pointer dwell on an explicitly tracked component; value = ms
+  | "component_view" // time a PolishMonitor component spent in the viewport; value = ms
   | "session_end"; // the session's last page was unloaded
 
 /**
@@ -77,5 +78,6 @@ export const CLIENT_EVENT_TYPES: ReadonlySet<PolishEventType> = new Set<PolishEv
   "js_error",
   "web_vital",
   "hover",
+  "component_view",
   "session_end",
 ]);

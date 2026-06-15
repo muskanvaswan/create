@@ -630,6 +630,14 @@ export interface MonitoredComponent {
   hovers: number;
   /** Average hover dwell time in ms. Null when no hover data. */
   avgHoverMs: number | null;
+  /** Total component_view events (one per continuous viewport visit ≥500ms). */
+  componentViews: number;
+  /** Average time visible per viewport visit, in ms. Null when no view data. */
+  avgViewMs: number | null;
+  /** Average component height in px across all view events. */
+  avgHeightPx: number | null;
+  /** Average max scroll-depth % reached across all view events. */
+  avgScrollDepth: number | null;
   /** Distinct sessions that interacted with this component. */
   sessions: number;
   /** Distinct pages the component appeared on. */
@@ -647,37 +655,47 @@ export async function getMonitoredComponents(): Promise<MonitoredComponent[]> {
 
   const rows = await query(
     `SELECT
-       component                                                        AS name,
-       SUM(CASE WHEN type = 'click'      THEN 1 ELSE 0 END)            AS clicks,
-       SUM(CASE WHEN type = 'rage_click' THEN 1 ELSE 0 END)            AS "rageClicks",
-       SUM(CASE WHEN type = 'dead_click' THEN 1 ELSE 0 END)            AS "deadClicks",
-       SUM(CASE WHEN type = 'hover'      THEN 1 ELSE 0 END)            AS hovers,
-       AVG(CASE WHEN type = 'hover'      THEN value END)               AS "avgHoverMs",
-       COUNT(DISTINCT session_id)                                       AS sessions,
-       COUNT(DISTINCT path)                                             AS pages
+       component                                                              AS name,
+       SUM(CASE WHEN type = 'click'           THEN 1 ELSE 0 END)             AS clicks,
+       SUM(CASE WHEN type = 'rage_click'      THEN 1 ELSE 0 END)             AS "rageClicks",
+       SUM(CASE WHEN type = 'dead_click'      THEN 1 ELSE 0 END)             AS "deadClicks",
+       SUM(CASE WHEN type = 'hover'           THEN 1 ELSE 0 END)             AS hovers,
+       AVG(CASE WHEN type = 'hover'           THEN value END)                AS "avgHoverMs",
+       SUM(CASE WHEN type = 'component_view'  THEN 1 ELSE 0 END)             AS "componentViews",
+       AVG(CASE WHEN type = 'component_view'  THEN value END)                AS "avgViewMs",
+       AVG(CASE WHEN type = 'component_view'  THEN CAST(JSON_EXTRACT(meta, '$.height') AS REAL) END) AS "avgHeightPx",
+       AVG(CASE WHEN type = 'component_view'  THEN CAST(JSON_EXTRACT(meta, '$.scrollDepth') AS REAL) END) AS "avgScrollDepth",
+       COUNT(DISTINCT session_id)                                             AS sessions,
+       COUNT(DISTINCT path)                                                   AS pages
      FROM events
      WHERE component IN (
        SELECT DISTINCT component FROM events
-       WHERE type = 'hover' AND component IS NOT NULL
+       WHERE type IN ('hover', 'component_view') AND component IS NOT NULL
      )
      GROUP BY component
-     ORDER BY hovers DESC`,
+     ORDER BY "componentViews" DESC, hovers DESC`,
   );
 
-  return rows.map((r): MonitoredComponent => {
-    const avg = r.avgHoverMs;
-    const avgNum = typeof avg === "number" ? avg : typeof avg === "string" ? Number(avg) : NaN;
-    return {
-      name: r.name as string,
-      clicks: num(r, "clicks"),
-      rageClicks: num(r, "rageClicks"),
-      deadClicks: num(r, "deadClicks"),
-      hovers: num(r, "hovers"),
-      avgHoverMs: Number.isFinite(avgNum) ? Math.round(avgNum) : null,
-      sessions: num(r, "sessions"),
-      pages: num(r, "pages"),
-    };
-  });
+  const toNum = (v: unknown) => {
+    if (typeof v === "number") return Number.isFinite(v) ? v : null;
+    if (typeof v === "string") { const n = Number(v); return Number.isFinite(n) ? n : null; }
+    return null;
+  };
+
+  return rows.map((r): MonitoredComponent => ({
+    name: r.name as string,
+    clicks: num(r, "clicks"),
+    rageClicks: num(r, "rageClicks"),
+    deadClicks: num(r, "deadClicks"),
+    hovers: num(r, "hovers"),
+    avgHoverMs: toNum(r.avgHoverMs) !== null ? Math.round(toNum(r.avgHoverMs)!) : null,
+    componentViews: num(r, "componentViews"),
+    avgViewMs: toNum(r.avgViewMs) !== null ? Math.round(toNum(r.avgViewMs)!) : null,
+    avgHeightPx: toNum(r.avgHeightPx) !== null ? Math.round(toNum(r.avgHeightPx)!) : null,
+    avgScrollDepth: toNum(r.avgScrollDepth) !== null ? Math.round(toNum(r.avgScrollDepth)!) : null,
+    sessions: num(r, "sessions"),
+    pages: num(r, "pages"),
+  }));
 }
 
 export async function getRecentErrors(limit = 10): Promise<RecentError[]> {

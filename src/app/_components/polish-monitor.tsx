@@ -3,12 +3,16 @@
 /**
  * PolishMonitor — explicit component-level tracking for Polish.
  *
- * Drop this around any element you want to monitor. It:
- *   1. Sets data-component so Polish attributes every child click to `name`.
- *   2. Detects what can be tracked based on child element types (buttons → clicks
- *      already captured globally; any area → hover dwell time tracked here).
- *   3. Emits "hover" events with dwell duration so you can see engagement on
- *      specific UI regions in the Polish dashboard.
+ * Drop this around any element you want to monitor. It auto-detects what can
+ * be tracked based on child element types, then captures:
+ *
+ *  • hover   — pointer dwell time (≥200ms), value = ms
+ *  • component_view — time in the viewport per visit, value = ms, meta includes:
+ *      width, height (px), scrollDepth (% of component scrolled through),
+ *      views (how many times it entered the viewport)
+ *
+ * Child clicks/rage/dead are attributed automatically via data-component
+ * and the existing global Polish click capture — no extra wiring needed.
  *
  * Usage:
  *   <PolishMonitor name="listen-button">
@@ -34,6 +38,17 @@ type Props = {
   className?: string;
 };
 
+/** Find the nearest ancestor that scrolls on the y-axis. */
+function findScrollParent(el: HTMLElement): HTMLElement | Window {
+  let node: HTMLElement | null = el.parentElement;
+  while (node) {
+    const { overflowY } = window.getComputedStyle(node);
+    if (/auto|scroll/.test(overflowY) && node.scrollHeight > node.clientHeight) return node;
+    node = node.parentElement;
+  }
+  return window;
+}
+
 export function PolishMonitor({ name, children, className }: Props) {
   const ref = useRef<HTMLSpanElement>(null);
   const hoverStart = useRef<number | null>(null);
@@ -42,33 +57,102 @@ export function PolishMonitor({ name, children, className }: Props) {
     const el = ref.current;
     if (!el) return;
 
-    // Auto-detect what's trackable inside this wrapper.
+    // Auto-detect what's trackable and annotate for devtools.
     const hasButtons = el.querySelectorAll("button").length > 0;
     const hasLinks = el.querySelectorAll("a").length > 0;
-    const trackableKinds: string[] = ["hover"];
-    if (hasButtons) trackableKinds.push("click");
-    if (hasLinks) trackableKinds.push("link");
+    const kinds: string[] = ["hover", "view"];
+    if (hasButtons) kinds.push("click");
+    if (hasLinks) kinds.push("link");
+    el.dataset.polishTracks = kinds.join(",");
 
-    // Store on the element so devtools can inspect what's being tracked.
-    el.dataset.polishTracks = trackableKinds.join(",");
-
-    const onEnter = () => {
-      hoverStart.current = Date.now();
-    };
-
+    // ── Hover tracking ──────────────────────────────────────────────────────
+    const onEnter = () => { hoverStart.current = Date.now(); };
     const onLeave = () => {
       if (hoverStart.current === null) return;
       const ms = Date.now() - hoverStart.current;
       hoverStart.current = null;
-      // Ignore accidental mouse passes — only record intentional hovers.
       if (ms < 200) return;
       window.__polishTrack?.({ type: "hover", component: name, value: ms });
     };
+
+    // ── Viewport / focus tracking ───────────────────────────────────────────
+    // visibleSince: when this viewport visit started (null = not visible)
+    // totalMs: accumulated visible time across all viewport visits
+    // maxScrollDepth: highest scroll-through % seen (0–100)
+    // viewCount: how many times the component entered the viewport
+    let visibleSince: number | null = null;
+    let totalMs = 0;
+    let maxScrollDepth = 0;
+    let viewCount = 0;
+
+    // Compute how far through the component the user has scrolled.
+    // Formula: (viewportHeight - componentTop) / componentHeight, clamped 0–100.
+    // Reaches 100% when the bottom of the component is at the viewport bottom.
+    const refreshScrollDepth = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.height === 0) return;
+      const pct = Math.max(0, Math.min(100, Math.round(
+        ((window.innerHeight - rect.top) / rect.height) * 100,
+      )));
+      if (pct > maxScrollDepth) maxScrollDepth = pct;
+    };
+
+    // Flush accumulated viewport time as a component_view event.
+    // Called when the component leaves the viewport or the effect cleans up.
+    const emitView = () => {
+      if (visibleSince !== null) {
+        totalMs += Date.now() - visibleSince;
+        visibleSince = null;
+      }
+      if (totalMs < 500) return; // ignore flashes shorter than half a second
+      window.__polishTrack?.({
+        type: "component_view",
+        component: name,
+        value: totalMs,
+        meta: {
+          width: el.offsetWidth,
+          height: el.offsetHeight,
+          scrollDepth: maxScrollDepth,
+          views: viewCount,
+        },
+      });
+      totalMs = 0;
+      maxScrollDepth = 0;
+      viewCount = 0;
+    };
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            if (visibleSince === null) {
+              visibleSince = Date.now();
+              viewCount++;
+            }
+            refreshScrollDepth();
+          } else {
+            if (visibleSince !== null) {
+              totalMs += Date.now() - visibleSince;
+              visibleSince = null;
+            }
+            if (totalMs >= 500) emitView();
+          }
+        }
+      },
+      { threshold: [0, 0.1, 0.5, 1.0] },
+    );
+    observer.observe(el);
+
+    const scrollParent = findScrollParent(el);
+    scrollParent.addEventListener("scroll", refreshScrollDepth, { passive: true } as EventListenerOptions);
 
     el.addEventListener("pointerenter", onEnter);
     el.addEventListener("pointerleave", onLeave);
 
     return () => {
+      emitView(); // flush remaining time on unmount / name change
+      observer.disconnect();
+      scrollParent.removeEventListener("scroll", refreshScrollDepth);
       el.removeEventListener("pointerenter", onEnter);
       el.removeEventListener("pointerleave", onLeave);
     };
