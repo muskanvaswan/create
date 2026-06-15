@@ -42,10 +42,8 @@ export interface RecentError {
 }
 
 export interface FrictionElement {
-  /** The component name (from data-component) or, failing that, the selector. */
+  /** The DOM selector this element was interacted with as. */
   label: string;
-  /** True when `label` is a real component name, false when it's a raw selector. */
-  isComponent: boolean;
   /** A representative DOM selector for this element. */
   selector: string | null;
   /** A sample of the element's visible text (label), if any. */
@@ -55,8 +53,6 @@ export interface FrictionElement {
   clicks: number;
   rageClicks: number;
   deadClicks: number;
-  /** Deliberate hovers (≥200ms dwell) on this element, via <PolishMonitor>. */
-  hovers: number;
   /** Composite friction score; higher = worse. */
   score: number;
   /** Client timestamp of the most recent interaction with this element, ms. */
@@ -304,28 +300,28 @@ export async function getTopPages(limit = 8): Promise<TopPage[]> {
 }
 
 /**
- * Per-element interaction breakdown. Groups every click-type event by its
- * component (the `data-component` hint Polish walks up the DOM for) or, when no
- * component is annotated, by its selector path. This is the data that makes
- * Stage 2 synthesis possible: it tells you *which UI element* the friction is
- * on, not just which page.
+ * Per-element interaction breakdown, grouped by DOM selector path. This is the
+ * data that makes Stage 2 synthesis possible: it tells you *which UI element*
+ * the friction is on, not just which page.
+ *
+ * Explicitly monitored components (those wrapped in <PolishMonitor>, the only
+ * source of `data-component`) are excluded here — they get their own dedicated
+ * "Monitored components" section, so this table covers the rest of the UI.
  */
 export async function getFrictionElements(limit = 12): Promise<FrictionElement[]> {
   const rows = await query(
     `SELECT
-       COALESCE(component, selector, '(unknown)')                       AS label,
-       MAX(CASE WHEN component IS NOT NULL THEN 1 ELSE 0 END)           AS "isComponent",
+       COALESCE(selector, '(unknown)')                                 AS label,
        MAX(selector)                                                    AS selector,
        MAX(text)                                                        AS "sampleText",
        COUNT(DISTINCT path)                                             AS pages,
        SUM(CASE WHEN type = 'click'      THEN 1 ELSE 0 END)             AS clicks,
        SUM(CASE WHEN type = 'rage_click' THEN 1 ELSE 0 END)             AS "rageClicks",
        SUM(CASE WHEN type = 'dead_click' THEN 1 ELSE 0 END)             AS "deadClicks",
-       SUM(CASE WHEN type = 'hover'      THEN 1 ELSE 0 END)             AS hovers,
        MAX(ts)                                                          AS "lastTs"
      FROM events
-     WHERE type IN ('click', 'rage_click', 'dead_click', 'hover')
-     GROUP BY COALESCE(component, selector, '(unknown)')`,
+     WHERE type IN ('click', 'rage_click', 'dead_click') AND component IS NULL
+     GROUP BY COALESCE(selector, '(unknown)')`,
   );
 
   return rows
@@ -335,14 +331,12 @@ export async function getFrictionElements(limit = 12): Promise<FrictionElement[]
       const clicks = num(r, "clicks");
       return {
         label: r.label as string,
-        isComponent: num(r, "isComponent") === 1,
         selector: (r.selector as string) ?? null,
         sampleText: (r.sampleText as string) ?? null,
         pages: num(r, "pages"),
         clicks,
         rageClicks,
         deadClicks,
-        hovers: num(r, "hovers"),
         score: Math.round((rageClicks * 3 + deadClicks * 2) * 10) / 10,
         lastInteraction: num(r, "lastTs"),
       };
@@ -646,9 +640,14 @@ export interface MonitoredComponent {
 
 /**
  * Fetch all components explicitly wrapped in <PolishMonitor>. The definitive
- * marker is the presence of at least one "hover" event for that component name
- * (hover events are only emitted by PolishMonitor). We then pull all event
- * types for those components so the table shows the complete interaction picture.
+ * marker is the presence of at least one "hover" or "component_view" event for
+ * that component name (both are only emitted by PolishMonitor). We then pull all
+ * event types for those components so the table shows the complete picture.
+ *
+ * The per-view `meta` (height, scrollDepth) is aggregated in JS rather than SQL:
+ * the two backends spell JSON extraction differently (SQLite `JSON_EXTRACT`,
+ * Postgres `->>`), and there's no portable function, so we parse meta here —
+ * matching how `getSessionJourneys` and `getTopPages` keep their SQL portable.
  */
 export async function getMonitoredComponents(): Promise<MonitoredComponent[]> {
   if (!(await storeReady())) return [];
@@ -663,8 +662,6 @@ export async function getMonitoredComponents(): Promise<MonitoredComponent[]> {
        AVG(CASE WHEN type = 'hover'           THEN value END)                AS "avgHoverMs",
        SUM(CASE WHEN type = 'component_view'  THEN 1 ELSE 0 END)             AS "componentViews",
        AVG(CASE WHEN type = 'component_view'  THEN value END)                AS "avgViewMs",
-       AVG(CASE WHEN type = 'component_view'  THEN CAST(JSON_EXTRACT(meta, '$.height') AS REAL) END) AS "avgHeightPx",
-       AVG(CASE WHEN type = 'component_view'  THEN CAST(JSON_EXTRACT(meta, '$.scrollDepth') AS REAL) END) AS "avgScrollDepth",
        COUNT(DISTINCT session_id)                                             AS sessions,
        COUNT(DISTINCT path)                                                   AS pages
      FROM events
@@ -676,26 +673,54 @@ export async function getMonitoredComponents(): Promise<MonitoredComponent[]> {
      ORDER BY "componentViews" DESC, hovers DESC`,
   );
 
+  if (rows.length === 0) return [];
+
+  // Pull component_view meta for just these components and average the
+  // height/scrollDepth in JS (portable across SQLite + Postgres).
+  const names = rows.map((r) => r.name as string);
+  const placeholders = names.map(() => "?").join(", ");
+  const viewRows = await query(
+    `SELECT component, meta FROM events
+     WHERE type = 'component_view' AND component IN (${placeholders})`,
+    names,
+  );
+
+  // component → running sums for averaging.
+  const dims = new Map<string, { hSum: number; hN: number; dSum: number; dN: number }>();
+  for (const v of viewRows) {
+    const name = v.component as string;
+    const meta = parseMeta(v.meta);
+    if (!meta) continue;
+    let acc = dims.get(name);
+    if (!acc) dims.set(name, (acc = { hSum: 0, hN: 0, dSum: 0, dN: 0 }));
+    if (typeof meta.height === "number") { acc.hSum += meta.height; acc.hN++; }
+    if (typeof meta.scrollDepth === "number") { acc.dSum += meta.scrollDepth; acc.dN++; }
+  }
+
   const toNum = (v: unknown) => {
     if (typeof v === "number") return Number.isFinite(v) ? v : null;
     if (typeof v === "string") { const n = Number(v); return Number.isFinite(n) ? n : null; }
     return null;
   };
 
-  return rows.map((r): MonitoredComponent => ({
-    name: r.name as string,
-    clicks: num(r, "clicks"),
-    rageClicks: num(r, "rageClicks"),
-    deadClicks: num(r, "deadClicks"),
-    hovers: num(r, "hovers"),
-    avgHoverMs: toNum(r.avgHoverMs) !== null ? Math.round(toNum(r.avgHoverMs)!) : null,
-    componentViews: num(r, "componentViews"),
-    avgViewMs: toNum(r.avgViewMs) !== null ? Math.round(toNum(r.avgViewMs)!) : null,
-    avgHeightPx: toNum(r.avgHeightPx) !== null ? Math.round(toNum(r.avgHeightPx)!) : null,
-    avgScrollDepth: toNum(r.avgScrollDepth) !== null ? Math.round(toNum(r.avgScrollDepth)!) : null,
-    sessions: num(r, "sessions"),
-    pages: num(r, "pages"),
-  }));
+  return rows.map((r): MonitoredComponent => {
+    const name = r.name as string;
+    const acc = dims.get(name);
+    return {
+      name,
+      clicks: num(r, "clicks"),
+      rageClicks: num(r, "rageClicks"),
+      deadClicks: num(r, "deadClicks"),
+      hovers: num(r, "hovers"),
+      avgHoverMs: toNum(r.avgHoverMs) !== null ? Math.round(toNum(r.avgHoverMs)!) : null,
+      componentViews: num(r, "componentViews"),
+      avgViewMs: toNum(r.avgViewMs) !== null ? Math.round(toNum(r.avgViewMs)!) : null,
+      avgHeightPx: acc && acc.hN > 0 ? Math.round(acc.hSum / acc.hN) : null,
+      avgScrollDepth: acc && acc.dN > 0 ? Math.round(acc.dSum / acc.dN) : null,
+      sessions: num(r, "sessions"),
+      pages: num(r, "pages"),
+    };
+  });
 }
 
 export async function getRecentErrors(limit = 10): Promise<RecentError[]> {
