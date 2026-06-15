@@ -161,7 +161,7 @@ function JourneyListCard({
     <button
       type="button"
       onClick={onOpen}
-      className={`group flex w-full items-center gap-4 px-5 py-3.5 text-left transition-colors hover:bg-[#111] ${divider} first:border-t-0`}
+      className={`group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[#111] sm:gap-4 sm:px-5 sm:py-3.5 ${divider} first:border-t-0`}
     >
       {/* score */}
       <div className="flex w-12 shrink-0 flex-col items-center">
@@ -247,14 +247,14 @@ function JourneyDrawer({
         role="dialog"
         aria-modal="true"
         aria-label="Session journey detail"
-        className={`absolute right-0 top-0 flex h-full w-full max-w-md flex-col border-l ${border} bg-[#0a0a0a] shadow-2xl transition-transform duration-200 ease-out ${
+        className={`absolute right-0 top-0 flex h-full w-full max-w-sm flex-col border-l ${border} bg-[#0a0a0a] shadow-2xl transition-transform duration-200 ease-out sm:max-w-md ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
         {journey && (
           <>
             {/* header */}
-            <div className={`flex items-center gap-3 border-b ${border} px-5 py-4`}>
+            <div className={`flex items-center gap-3 border-b ${border} px-4 py-4 sm:px-5`}>
               <span className="font-mono text-[14px] font-semibold text-white">#{journey.id}</span>
               <span
                 className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
@@ -311,7 +311,7 @@ function JourneyDrawer({
               </div>
 
               {/* flow chart */}
-              <div className={`border-t ${border} px-5 py-4`}>
+              <div className={`border-t ${border} px-4 py-4 sm:px-5`}>
                 <div className="mb-3 text-[10px] uppercase tracking-[0.08em] text-[#666]">
                   Flow — {journey.steps.length} actions
                 </div>
