@@ -5,7 +5,7 @@
  */
 export default function PolishLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 overflow-y-auto bg-black font-sans antialiased">
+    <div className="fixed inset-0 overflow-y-auto overflow-x-hidden bg-black font-sans antialiased">
       {children}
     </div>
   );

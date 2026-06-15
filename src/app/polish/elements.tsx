@@ -62,32 +62,40 @@ function ElementRow({ el }: { el: FrictionElement }) {
   );
 }
 
-export default function ElementsTableBody({ elements }: { elements: FrictionElement[] }) {
+export default function ElementsTable({
+  elements,
+  header,
+}: {
+  elements: FrictionElement[];
+  header: React.ReactNode;
+}) {
   const [expanded, setExpanded] = useState(false);
   const hidden = elements.length - COLLAPSED_COUNT;
   const shown = expanded ? elements : elements.slice(0, COLLAPSED_COUNT);
 
   return (
     <>
-      <tbody>
-        {shown.map((el) => (
-          <ElementRow key={el.label} el={el} />
-        ))}
-      </tbody>
+      {/* Only the table scrolls horizontally; the toggle below stays put. */}
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[560px]">
+          <thead>{header}</thead>
+          <tbody>
+            {shown.map((el) => (
+              <ElementRow key={el.label} el={el} />
+            ))}
+          </tbody>
+        </table>
+      </div>
       {hidden > 0 && (
-        <tfoot>
-          <tr className={divider}>
-            <td colSpan={7} className="px-5 py-2.5 text-center">
-              <button
-                type="button"
-                onClick={() => setExpanded((v) => !v)}
-                className="text-[12px] font-medium text-[#888] transition-colors hover:text-white"
-              >
-                {expanded ? "Show less" : `Show ${hidden} more`}
-              </button>
-            </td>
-          </tr>
-        </tfoot>
+        <div className={`${divider} px-5 py-2.5 text-center`}>
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="text-[12px] font-medium text-[#888] transition-colors hover:text-white"
+          >
+            {expanded ? "Show less" : `Show ${hidden} more`}
+          </button>
+        </div>
       )}
     </>
   );

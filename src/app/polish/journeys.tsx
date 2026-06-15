@@ -274,7 +274,7 @@ function JourneyDrawer({
             </div>
 
             {/* scrollable body */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
               {/* metadata grid */}
               <div className="grid grid-cols-2">
                 <MetaCell label="Recorded" value={fmtClock(journey.startedAt)} />
