@@ -79,18 +79,29 @@ export function PolishMonitor({ name, children, className }: Props) {
     // visibleSince: when this viewport visit started (null = not visible)
     // totalMs: accumulated visible time across all viewport visits
     // maxScrollDepth: highest scroll-through % seen (0–100)
+    // maxHeightPx/maxWidthPx: largest rendered box seen while laid out
     // viewCount: how many times the component entered the viewport
     let visibleSince: number | null = null;
     let totalMs = 0;
     let maxScrollDepth = 0;
+    let maxHeightPx = 0;
+    let maxWidthPx = 0;
     let viewCount = 0;
 
-    // Compute how far through the component the user has scrolled.
-    // Formula: (viewportHeight - componentTop) / componentHeight, clamped 0–100.
-    // Reaches 100% when the bottom of the component is at the viewport bottom.
+    // Track scroll-through % and the element's rendered size *while it's laid
+    // out*. getBoundingClientRect returns the full box (not clipped to the
+    // viewport), so it captures the element's true height even when only part
+    // is on screen — and reading it here, rather than el.offsetHeight at emit
+    // time, avoids the 0px we'd otherwise get when emitView fires during React
+    // teardown (unmount / name change).
+    // Scroll-depth formula: (viewportHeight - componentTop) / componentHeight,
+    // clamped 0–100. Reaches 100% when the component's bottom is at the
+    // viewport bottom.
     const refreshScrollDepth = () => {
       const rect = el.getBoundingClientRect();
       if (rect.height === 0) return;
+      if (rect.height > maxHeightPx) maxHeightPx = rect.height;
+      if (rect.width > maxWidthPx) maxWidthPx = rect.width;
       const pct = Math.max(0, Math.min(100, Math.round(
         ((window.innerHeight - rect.top) / rect.height) * 100,
       )));
@@ -110,14 +121,16 @@ export function PolishMonitor({ name, children, className }: Props) {
         component: name,
         value: totalMs,
         meta: {
-          width: el.offsetWidth,
-          height: el.offsetHeight,
+          width: Math.round(maxWidthPx),
+          height: Math.round(maxHeightPx),
           scrollDepth: maxScrollDepth,
           views: viewCount,
         },
       });
       totalMs = 0;
       maxScrollDepth = 0;
+      maxHeightPx = 0;
+      maxWidthPx = 0;
       viewCount = 0;
     };
 

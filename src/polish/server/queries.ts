@@ -628,8 +628,13 @@ export interface MonitoredComponent {
   componentViews: number;
   /** Average time visible per viewport visit, in ms. Null when no view data. */
   avgViewMs: number | null;
-  /** Average component height in px across all view events. */
-  avgHeightPx: number | null;
+  /**
+   * Largest rendered height in px observed across all view events. We take the
+   * max (not the average) because a component name can be attached to more than
+   * one element — note slugs wrap both the short sidebar row and the tall
+   * article body — and the max is the meaningful "how long is this content".
+   */
+  heightPx: number | null;
   /** Average max scroll-depth % reached across all view events. */
   avgScrollDepth: number | null;
   /** Distinct sessions that interacted with this component. */
@@ -675,8 +680,10 @@ export async function getMonitoredComponents(): Promise<MonitoredComponent[]> {
 
   if (rows.length === 0) return [];
 
-  // Pull component_view meta for just these components and average the
-  // height/scrollDepth in JS (portable across SQLite + Postgres).
+  // Pull component_view meta for just these components and reduce the
+  // height/scrollDepth in JS (portable across SQLite + Postgres). Height takes
+  // the max observed (the tallest element the name was attached to — the
+  // article body); scroll depth is averaged across visits.
   const names = rows.map((r) => r.name as string);
   const placeholders = names.map(() => "?").join(", ");
   const viewRows = await query(
@@ -685,15 +692,15 @@ export async function getMonitoredComponents(): Promise<MonitoredComponent[]> {
     names,
   );
 
-  // component → running sums for averaging.
-  const dims = new Map<string, { hSum: number; hN: number; dSum: number; dN: number }>();
+  // component → max height + running scroll-depth average.
+  const dims = new Map<string, { hMax: number; hSeen: boolean; dSum: number; dN: number }>();
   for (const v of viewRows) {
     const name = v.component as string;
     const meta = parseMeta(v.meta);
     if (!meta) continue;
     let acc = dims.get(name);
-    if (!acc) dims.set(name, (acc = { hSum: 0, hN: 0, dSum: 0, dN: 0 }));
-    if (typeof meta.height === "number") { acc.hSum += meta.height; acc.hN++; }
+    if (!acc) dims.set(name, (acc = { hMax: 0, hSeen: false, dSum: 0, dN: 0 }));
+    if (typeof meta.height === "number") { acc.hSeen = true; if (meta.height > acc.hMax) acc.hMax = meta.height; }
     if (typeof meta.scrollDepth === "number") { acc.dSum += meta.scrollDepth; acc.dN++; }
   }
 
@@ -715,7 +722,7 @@ export async function getMonitoredComponents(): Promise<MonitoredComponent[]> {
       avgHoverMs: toNum(r.avgHoverMs) !== null ? Math.round(toNum(r.avgHoverMs)!) : null,
       componentViews: num(r, "componentViews"),
       avgViewMs: toNum(r.avgViewMs) !== null ? Math.round(toNum(r.avgViewMs)!) : null,
-      avgHeightPx: acc && acc.hN > 0 ? Math.round(acc.hSum / acc.hN) : null,
+      heightPx: acc && acc.hSeen ? Math.round(acc.hMax) : null,
       avgScrollDepth: acc && acc.dN > 0 ? Math.round(acc.dSum / acc.dN) : null,
       sessions: num(r, "sessions"),
       pages: num(r, "pages"),

@@ -196,7 +196,7 @@ function MonitoredRow({ m }: { m: MonitoredComponent }) {
         {m.avgScrollDepth !== null ? `${m.avgScrollDepth}%` : <span className="text-[#444]">—</span>}
       </td>
       <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#555]">
-        {m.avgHeightPx !== null ? `${m.avgHeightPx}px` : <span className="text-[#444]">—</span>}
+        {m.heightPx !== null ? `${m.heightPx}px` : <span className="text-[#444]">—</span>}
       </td>
       {/* Interaction */}
       <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">{m.clicks > 0 ? m.clicks : <span className="text-[#444]">—</span>}</td>
@@ -368,7 +368,7 @@ export default async function PolishDashboard() {
                     <Th tip="Times this component entered the viewport for ≥500ms.">Views</Th>
                     <Th tip="Average time visible per viewport visit — a proxy for reading/engagement time.">Avg time</Th>
                     <Th tip="Average % of the component's height scrolled through per visit. 100% = user reached the bottom.">Scroll depth</Th>
-                    <Th tip="Average component height in px, from viewport events.">Height</Th>
+                    <Th tip="Largest rendered height in px seen for this component — for an article, its full content height.">Height</Th>
                     <Th tip="Normal (non-rage, non-dead) clicks.">Clicks</Th>
                     <Th tip="Deliberate pointer hovers (≥200ms dwell).">Hovers</Th>
                     <Th tip="Rage clicks (3+ rapid clicks) — frustration signal.">Rage</Th>
