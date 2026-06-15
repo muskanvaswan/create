@@ -163,8 +163,8 @@ function MonitoredRow({ m }: { m: MonitoredComponent }) {
   const hasFriction = m.rageClicks > 0 || m.deadClicks > 0;
   return (
     <tr className={`${divider} first:border-t-0 align-top`}>
-      <td className="py-2.5 pl-5 pr-6">
-        <div className="flex items-center gap-2">
+      <td className="py-2.5 pl-5 pr-4 min-w-[160px]">
+        <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-[13px] font-medium text-white">{m.name}</span>
           <span className="rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider bg-purple-950 text-purple-400">
             monitored
@@ -180,12 +180,26 @@ function MonitoredRow({ m }: { m: MonitoredComponent }) {
           {m.pages === 1 ? "page" : "pages"}
         </div>
       </td>
-      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">{m.clicks}</td>
-      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">{m.rageClicks > 0 ? <span className="text-red-400">{m.rageClicks}</span> : <span className="text-[#444]">—</span>}</td>
-      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">{m.deadClicks > 0 ? <span className="text-[#f5a623]">{m.deadClicks}</span> : <span className="text-[#444]">—</span>}</td>
-      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">{m.hovers}</td>
-      <td className="py-2.5 pl-4 pr-5 text-right text-[13px] tabular-nums text-[#555]">
-        {m.avgHoverMs !== null ? fmtMs(m.avgHoverMs) : <span className="text-[#444]">—</span>}
+      {/* Viewport engagement */}
+      <td className="py-2.5 px-4 text-right text-[13px] font-semibold tabular-nums text-white">
+        {m.componentViews > 0 ? m.componentViews : <span className="font-normal text-[#444]">—</span>}
+      </td>
+      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">
+        {m.avgViewMs !== null ? fmtMs(m.avgViewMs) : <span className="text-[#444]">—</span>}
+      </td>
+      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">
+        {m.avgScrollDepth !== null ? `${m.avgScrollDepth}%` : <span className="text-[#444]">—</span>}
+      </td>
+      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#555]">
+        {m.avgHeightPx !== null ? `${m.avgHeightPx}px` : <span className="text-[#444]">—</span>}
+      </td>
+      {/* Interaction */}
+      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums text-[#888]">{m.clicks > 0 ? m.clicks : <span className="text-[#444]">—</span>}</td>
+      <td className="py-2.5 px-4 text-right text-[13px] tabular-nums">
+        {m.hovers > 0 ? <span className="text-[#888]">{m.hovers}</span> : <span className="text-[#444]">—</span>}
+      </td>
+      <td className="py-2.5 pl-4 pr-5 text-right text-[13px] tabular-nums">
+        {m.rageClicks > 0 ? <span className="text-red-400">{m.rageClicks}</span> : <span className="text-[#444]">—</span>}
       </td>
     </tr>
   );
@@ -322,6 +336,50 @@ export default async function PolishDashboard() {
         <TopPagesTable pages={pages} />
       </Section>
 
+      {/* Monitored components */}
+      <Section
+        title={
+          <>
+            Monitored components
+            <InfoTip
+              anchor="left"
+              text="Components explicitly wrapped in <PolishMonitor>. Shows viewport engagement (views, avg time visible, scroll depth, dimensions) alongside click friction. A high view count with low clicks often signals interest without commitment."
+            />
+          </>
+        }
+      >
+        <div className={card}>
+          {monitored.length === 0 ? (
+            <p className="px-5 py-8 text-center text-[13px] text-[#555]">
+              No monitored components yet — wrap elements with{" "}
+              <code className="font-mono text-[#777]">{"<PolishMonitor name=\"…\">"}</code> to track them here.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px]">
+                <thead>
+                  <tr>
+                    <Th align="left" tip="The name prop passed to <PolishMonitor>. Sessions and pages shown beneath.">Component</Th>
+                    <Th tip="Times this component entered the viewport for ≥500ms.">Views</Th>
+                    <Th tip="Average time visible per viewport visit — a proxy for reading/engagement time.">Avg time</Th>
+                    <Th tip="Average % of the component's height scrolled through per visit. 100% = user reached the bottom.">Scroll depth</Th>
+                    <Th tip="Average component height in px, from viewport events.">Height</Th>
+                    <Th tip="Normal (non-rage, non-dead) clicks.">Clicks</Th>
+                    <Th tip="Deliberate pointer hovers (≥200ms dwell).">Hovers</Th>
+                    <Th tip="Rage clicks (3+ rapid clicks) — frustration signal.">Rage</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {monitored.map((m) => (
+                    <MonitoredRow key={m.name} m={m} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </Section>
+
       {/* Session journeys */}
       <Section
         title={
@@ -366,48 +424,6 @@ export default async function PolishDashboard() {
                 </tr>
               </thead>
               <TopFeaturesTableBody features={topUsed} />
-            </table>
-            </div>
-          )}
-        </div>
-      </Section>
-
-      {/* Monitored components */}
-      <Section
-        title={
-          <>
-            Monitored components
-            <InfoTip
-              anchor="left"
-              text="Components explicitly wrapped in <PolishMonitor>. These are the elements you chose to watch — each row shows the full interaction picture: clicks, friction, and hover dwell. A high hover count with few clicks often signals hesitation."
-            />
-          </>
-        }
-      >
-        <div className={card}>
-          {monitored.length === 0 ? (
-            <p className="px-5 py-8 text-center text-[13px] text-[#555]">
-              No monitored components yet — wrap elements with{" "}
-              <code className="font-mono text-[#777]">{"<PolishMonitor name=\"…\">"}</code> to track them here.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-            <table className="w-full min-w-[500px]">
-              <thead>
-                <tr>
-                  <Th align="left" tip="The name prop passed to <PolishMonitor>. Sessions and pages shown beneath.">Component</Th>
-                  <Th tip="Normal (non-rage, non-dead) clicks.">Clicks</Th>
-                  <Th tip="3+ rapid clicks in 500ms — frustration signal.">Rage</Th>
-                  <Th tip="Clicks on non-interactive targets — confusion signal.">Dead</Th>
-                  <Th tip="Deliberate hovers (≥200ms dwell) on this component.">Hovers</Th>
-                  <Th tip="Average time the pointer rested before leaving or clicking.">Avg dwell</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {monitored.map((m) => (
-                  <MonitoredRow key={m.name} m={m} />
-                ))}
-              </tbody>
             </table>
             </div>
           )}
