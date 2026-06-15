@@ -376,14 +376,12 @@ export function NotesApp({ notes, children }: Props) {
                 <ul className="max-sm:overflow-hidden max-sm:rounded-2xl max-sm:bg-white dark:max-sm:bg-[#1c1c1e]">
                   {items.map((note, i) => (
                     <li key={note.slug}>
-                      <PolishMonitor name={note.slug} className="block">
-                        <NoteRow
-                          note={note}
-                          now={now}
-                          active={note.slug === activeSlug}
-                          showFolder={folder === null}
-                        />
-                      </PolishMonitor>
+                      <NoteRow
+                        note={note}
+                        now={now}
+                        active={note.slug === activeSlug}
+                        showFolder={folder === null}
+                      />
                       {i < items.length - 1 && (
                         <div className="mx-3 h-px bg-black/5 dark:bg-white/5" />
                       )}
@@ -433,7 +431,7 @@ export function NotesApp({ notes, children }: Props) {
               </div>
             )}
             {activeNote ? (
-              <PolishMonitor name={activeNote.slug} className="block">
+              <PolishMonitor name={activeNote.slug} content className="block">
                 {children}
               </PolishMonitor>
             ) : children}

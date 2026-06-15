@@ -22,6 +22,7 @@ export type PolishEventType =
   | "web_vital" // a Core Web Vital sample (LCP, CLS, INP)
   | "hover" // pointer dwell on an explicitly tracked component; value = ms
   | "component_view" // time a PolishMonitor component spent in the viewport; value = ms
+  | "mount" // a content-tracked PolishMonitor component was rendered (mounted)
   | "session_end"; // the session's last page was unloaded
 
 /**
@@ -79,5 +80,6 @@ export const CLIENT_EVENT_TYPES: ReadonlySet<PolishEventType> = new Set<PolishEv
   "web_vital",
   "hover",
   "component_view",
+  "mount",
   "session_end",
 ]);

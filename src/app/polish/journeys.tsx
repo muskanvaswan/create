@@ -102,6 +102,7 @@ const STEP_STYLE: Record<
   web_vital: { dot: "bg-[#444]", verb: "Web vital", verbTone: "text-[#888]" },
   hover: { dot: "bg-purple-500", verb: "Hovered", verbTone: "text-purple-400" },
   component_view: { dot: "bg-purple-400", verb: "Viewed component", verbTone: "text-purple-300" },
+  mount: { dot: "bg-purple-400", verb: "Rendered component", verbTone: "text-purple-300" },
 };
 
 function JourneyStepRow({

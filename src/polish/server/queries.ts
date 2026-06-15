@@ -624,12 +624,19 @@ export interface MonitoredComponent {
   hovers: number;
   /** Average hover dwell time in ms. Null when no hover data. */
   avgHoverMs: number | null;
+  /** Times the region was rendered (mount events). Only for `content` monitors. */
+  mounts: number;
   /** Total component_view events (one per continuous viewport visit ≥500ms). */
   componentViews: number;
   /** Average time visible per viewport visit, in ms. Null when no view data. */
   avgViewMs: number | null;
-  /** Average component height in px across all view events. */
-  avgHeightPx: number | null;
+  /**
+   * Largest rendered height in px observed across all view events. We take the
+   * max (not the average) because a component name can be attached to more than
+   * one element — note slugs wrap both the short sidebar row and the tall
+   * article body — and the max is the meaningful "how long is this content".
+   */
+  heightPx: number | null;
   /** Average max scroll-depth % reached across all view events. */
   avgScrollDepth: number | null;
   /** Distinct sessions that interacted with this component. */
@@ -640,9 +647,10 @@ export interface MonitoredComponent {
 
 /**
  * Fetch all components explicitly wrapped in <PolishMonitor>. The definitive
- * marker is the presence of at least one "hover" or "component_view" event for
- * that component name (both are only emitted by PolishMonitor). We then pull all
- * event types for those components so the table shows the complete picture.
+ * marker is the presence of at least one "hover", "component_view", or "mount"
+ * event for that component name (all three are only emitted by PolishMonitor).
+ * We then pull all event types for those components so the table shows the
+ * complete picture.
  *
  * The per-view `meta` (height, scrollDepth) is aggregated in JS rather than SQL:
  * the two backends spell JSON extraction differently (SQLite `JSON_EXTRACT`,
@@ -660,6 +668,7 @@ export async function getMonitoredComponents(): Promise<MonitoredComponent[]> {
        SUM(CASE WHEN type = 'dead_click'      THEN 1 ELSE 0 END)             AS "deadClicks",
        SUM(CASE WHEN type = 'hover'           THEN 1 ELSE 0 END)             AS hovers,
        AVG(CASE WHEN type = 'hover'           THEN value END)                AS "avgHoverMs",
+       SUM(CASE WHEN type = 'mount'           THEN 1 ELSE 0 END)             AS mounts,
        SUM(CASE WHEN type = 'component_view'  THEN 1 ELSE 0 END)             AS "componentViews",
        AVG(CASE WHEN type = 'component_view'  THEN value END)                AS "avgViewMs",
        COUNT(DISTINCT session_id)                                             AS sessions,
@@ -667,16 +676,18 @@ export async function getMonitoredComponents(): Promise<MonitoredComponent[]> {
      FROM events
      WHERE component IN (
        SELECT DISTINCT component FROM events
-       WHERE type IN ('hover', 'component_view') AND component IS NOT NULL
+       WHERE type IN ('hover', 'component_view', 'mount') AND component IS NOT NULL
      )
      GROUP BY component
-     ORDER BY "componentViews" DESC, hovers DESC`,
+     ORDER BY "componentViews" DESC, mounts DESC, hovers DESC`,
   );
 
   if (rows.length === 0) return [];
 
-  // Pull component_view meta for just these components and average the
-  // height/scrollDepth in JS (portable across SQLite + Postgres).
+  // Pull component_view meta for just these components and reduce the
+  // height/scrollDepth in JS (portable across SQLite + Postgres). Height takes
+  // the max observed (the tallest element the name was attached to — the
+  // article body); scroll depth is averaged across visits.
   const names = rows.map((r) => r.name as string);
   const placeholders = names.map(() => "?").join(", ");
   const viewRows = await query(
@@ -685,15 +696,15 @@ export async function getMonitoredComponents(): Promise<MonitoredComponent[]> {
     names,
   );
 
-  // component → running sums for averaging.
-  const dims = new Map<string, { hSum: number; hN: number; dSum: number; dN: number }>();
+  // component → max height + running scroll-depth average.
+  const dims = new Map<string, { hMax: number; hSeen: boolean; dSum: number; dN: number }>();
   for (const v of viewRows) {
     const name = v.component as string;
     const meta = parseMeta(v.meta);
     if (!meta) continue;
     let acc = dims.get(name);
-    if (!acc) dims.set(name, (acc = { hSum: 0, hN: 0, dSum: 0, dN: 0 }));
-    if (typeof meta.height === "number") { acc.hSum += meta.height; acc.hN++; }
+    if (!acc) dims.set(name, (acc = { hMax: 0, hSeen: false, dSum: 0, dN: 0 }));
+    if (typeof meta.height === "number") { acc.hSeen = true; if (meta.height > acc.hMax) acc.hMax = meta.height; }
     if (typeof meta.scrollDepth === "number") { acc.dSum += meta.scrollDepth; acc.dN++; }
   }
 
@@ -713,9 +724,10 @@ export async function getMonitoredComponents(): Promise<MonitoredComponent[]> {
       deadClicks: num(r, "deadClicks"),
       hovers: num(r, "hovers"),
       avgHoverMs: toNum(r.avgHoverMs) !== null ? Math.round(toNum(r.avgHoverMs)!) : null,
+      mounts: num(r, "mounts"),
       componentViews: num(r, "componentViews"),
       avgViewMs: toNum(r.avgViewMs) !== null ? Math.round(toNum(r.avgViewMs)!) : null,
-      avgHeightPx: acc && acc.hN > 0 ? Math.round(acc.hSum / acc.hN) : null,
+      heightPx: acc && acc.hSeen ? Math.round(acc.hMax) : null,
       avgScrollDepth: acc && acc.dN > 0 ? Math.round(acc.dSum / acc.dN) : null,
       sessions: num(r, "sessions"),
       pages: num(r, "pages"),
