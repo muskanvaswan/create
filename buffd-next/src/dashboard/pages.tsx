@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Polish — "Top pages" table + sessions-over-time drawer (client).
+ * Buffd — "Top pages" table + sessions-over-time drawer (client).
  *
  * Lists the most-visited pages; clicking a row opens a bottom drawer with a
  * bar chart of distinct sessions per day for that page. A bottom drawer (rather
@@ -10,7 +10,7 @@
  */
 import { useEffect, useState } from "react";
 
-import type { PageTrendPoint, TopPage } from "@/polish/server/queries";
+import type { PageTrendPoint, TopPage } from "../server/queries";
 
 const border = "border-[#2e2e2e]";
 const card = `border ${border} rounded-lg bg-[#0a0a0a]`;
@@ -165,7 +165,7 @@ function SessionsChart({ trend }: { trend: PageTrendPoint[] }) {
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Sessions over time">
         <defs>
-          <linearGradient id="polish-area" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id="buffd-area" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
             <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
           </linearGradient>
@@ -196,7 +196,7 @@ function SessionsChart({ trend }: { trend: PageTrendPoint[] }) {
         ))}
 
         {/* area + line */}
-        <path d={areaPath} fill="url(#polish-area)" />
+        <path d={areaPath} fill="url(#buffd-area)" />
         <path d={linePath} fill="none" stroke="#3b82f6" strokeWidth={2} strokeLinejoin="round" />
 
         {/* points (native tooltip on hover) + x-axis date labels */}

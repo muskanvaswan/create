@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Polish — "Most-used features" body (client).
+ * Buffd — "Most-used features" body (client).
  *
  * Renders the most-used (highest click-volume) interactive elements, collapsed
  * to the top three by default with a "Show more" toggle to reveal the rest.
@@ -13,7 +13,7 @@
  */
 import { useState } from "react";
 
-import type { TopInteraction } from "@/polish/server/queries";
+import type { TopInteraction } from "../server/queries";
 
 const border = "border-[#2e2e2e]";
 const divider = `border-t ${border}`;

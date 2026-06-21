@@ -1,14 +1,14 @@
 "use client";
 
 /**
- * PolishMonitor — explicit component-level tracking for Polish.
+ * BuffdMonitor — explicit component-level tracking for Buffd.
  *
  * Drop this around any element you want to monitor. Two tiers of tracking:
  *
  * Always on (cheap, suits interactive controls like buttons):
  *  • hover   — pointer dwell time (≥200ms), value = ms
  *  • child clicks/rage/dead — attributed automatically via data-component and
- *    the existing global Polish click capture, no extra wiring needed.
+ *    the existing global Buffd click capture, no extra wiring needed.
  *
  * Opt-in with `content` (for content regions like an article body):
  *  • mount   — fired once when the region renders, so you can count how often
@@ -21,28 +21,28 @@
  * height/scroll/viewport data on them.
  *
  * Usage:
- *   <PolishMonitor name="listen-button">          // hover + click only
+ *   <BuffdMonitor name="listen-button">          // hover + click only
  *     <ListenButton src={src} />
- *   </PolishMonitor>
+ *   </BuffdMonitor>
  *
- *   <PolishMonitor name={slug} content>            // + mount, view, scroll, height
+ *   <BuffdMonitor name={slug} content>            // + mount, view, scroll, height
  *     <Article />
- *   </PolishMonitor>
+ *   </BuffdMonitor>
  */
 
 import { useEffect, useRef } from "react";
-import type { PolishEvent } from "../../polish/shared/types";
+import type { BuffdEvent } from "../shared/types";
 
-type TrackFn = (e: Omit<PolishEvent, "ts" | "path"> & Partial<Pick<PolishEvent, "ts" | "path">>) => void;
+type TrackFn = (e: Omit<BuffdEvent, "ts" | "path"> & Partial<Pick<BuffdEvent, "ts" | "path">>) => void;
 
 declare global {
   interface Window {
-    __polishTrack?: TrackFn;
+    __buffdTrack?: TrackFn;
   }
 }
 
 type Props = {
-  /** Name shown in the Polish dashboard — keep it kebab-case and stable. */
+  /** Name shown in the Buffd dashboard — keep it kebab-case and stable. */
   name: string;
   children: React.ReactNode;
   className?: string;
@@ -66,7 +66,7 @@ function findScrollParent(el: HTMLElement): HTMLElement | Window {
   return window;
 }
 
-export function PolishMonitor({ name, children, className, content = false }: Props) {
+export function BuffdMonitor({ name, children, className, content = false }: Props) {
   const ref = useRef<HTMLSpanElement>(null);
   const hoverStart = useRef<number | null>(null);
 
@@ -81,7 +81,7 @@ export function PolishMonitor({ name, children, className, content = false }: Pr
     if (content) kinds.push("mount", "view");
     if (hasButtons) kinds.push("click");
     if (hasLinks) kinds.push("link");
-    el.dataset.polishTracks = kinds.join(",");
+    el.dataset.buffdTracks = kinds.join(",");
 
     // ── Hover tracking (always on) ──────────────────────────────────────────
     const onEnter = () => { hoverStart.current = Date.now(); };
@@ -90,7 +90,7 @@ export function PolishMonitor({ name, children, className, content = false }: Pr
       const ms = Date.now() - hoverStart.current;
       hoverStart.current = null;
       if (ms < 200) return;
-      window.__polishTrack?.({ type: "hover", component: name, value: ms });
+      window.__buffdTrack?.({ type: "hover", component: name, value: ms });
     };
     el.addEventListener("pointerenter", onEnter);
     el.addEventListener("pointerleave", onLeave);
@@ -105,7 +105,7 @@ export function PolishMonitor({ name, children, className, content = false }: Pr
 
     // ── Content-region tracking (content=true only) ─────────────────────────
     // Record that the region rendered, so we can count how often it was shown.
-    window.__polishTrack?.({ type: "mount", component: name });
+    window.__buffdTrack?.({ type: "mount", component: name });
 
     // ── Viewport / focus tracking ───────────────────────────────────────────
     // visibleSince: when this viewport visit started (null = not visible)
@@ -148,7 +148,7 @@ export function PolishMonitor({ name, children, className, content = false }: Pr
         visibleSince = null;
       }
       if (totalMs < 500) return; // ignore flashes shorter than half a second
-      window.__polishTrack?.({
+      window.__buffdTrack?.({
         type: "component_view",
         component: name,
         value: totalMs,

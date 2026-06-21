@@ -1,7 +1,7 @@
 /**
- * Polish — dashboard aggregations (server only).
+ * Buffd — dashboard aggregations (server only).
  *
- * Read-side queries over the events table. These power the `/polish` dashboard
+ * Read-side queries over the events table. These power the `/buffd` dashboard
  * and, later, feed the Stage-2 synthesis prompt. Everything degrades to empty
  * results when the store is in no-op mode, so the dashboard always renders.
  *
@@ -10,7 +10,7 @@
  * spelled `SUM(CASE WHEN … THEN 1 ELSE 0 END)` rather than SQLite's `SUM(x = y)`.
  */
 import { parseMeta, query, storeReady } from "./store";
-import type { PolishEventType } from "../shared/types";
+import type { BuffdEventType } from "../shared/types";
 
 export interface OverviewStats {
   ready: boolean;
@@ -304,7 +304,7 @@ export async function getTopPages(limit = 8): Promise<TopPage[]> {
  * data that makes Stage 2 synthesis possible: it tells you *which UI element*
  * the friction is on, not just which page.
  *
- * Explicitly monitored components (those wrapped in <PolishMonitor>, the only
+ * Explicitly monitored components (those wrapped in <BuffdMonitor>, the only
  * source of `data-component`) are excluded here — they get their own dedicated
  * "Monitored components" section, so this table covers the rest of the UI.
  */
@@ -421,7 +421,7 @@ export async function getTopInteractions(limit = 12): Promise<TopInteraction[]> 
 
 /** One action in a reconstructed session, in the order it happened. */
 export interface JourneyStep {
-  type: PolishEventType;
+  type: BuffdEventType;
   /** Client clock for this action, ms since epoch. */
   ts: number;
   /** Pathname the action occurred on. */
@@ -466,7 +466,7 @@ export interface SessionJourney {
 }
 
 /** Event types that are user *actions* (the flow-chart nodes). */
-const JOURNEY_ACTION_TYPES: ReadonlySet<PolishEventType> = new Set<PolishEventType>([
+const JOURNEY_ACTION_TYPES: ReadonlySet<BuffdEventType> = new Set<BuffdEventType>([
   "page_view",
   "click",
   "rage_click",
@@ -564,7 +564,7 @@ export async function getSessionJourneys(limit = 6): Promise<SessionJourney[]> {
     const steps: JourneyStep[] = [];
 
     for (const e of events) {
-      const type = e.type as PolishEventType;
+      const type = e.type as BuffdEventType;
 
       // The viewport event isn't an action — it carries device details.
       if (type === "viewport") {
@@ -612,9 +612,9 @@ export async function getSessionJourneys(limit = 6): Promise<SessionJourney[]> {
   });
 }
 
-/** One explicitly-monitored component (wrapped in <PolishMonitor>). */
+/** One explicitly-monitored component (wrapped in <BuffdMonitor>). */
 export interface MonitoredComponent {
-  /** The name passed to <PolishMonitor name="...">. */
+  /** The name passed to <BuffdMonitor name="...">. */
   name: string;
   /** Normal clicks attributed to this component. */
   clicks: number;
@@ -646,9 +646,9 @@ export interface MonitoredComponent {
 }
 
 /**
- * Fetch all components explicitly wrapped in <PolishMonitor>. The definitive
+ * Fetch all components explicitly wrapped in <BuffdMonitor>. The definitive
  * marker is the presence of at least one "hover", "component_view", or "mount"
- * event for that component name (all three are only emitted by PolishMonitor).
+ * event for that component name (all three are only emitted by BuffdMonitor).
  * We then pull all event types for those components so the table shows the
  * complete picture.
  *

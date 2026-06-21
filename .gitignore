@@ -42,5 +42,6 @@ next-env.d.ts
 # passkey auth credentials (local only)
 _auth/
 
-# polish (generated analytics db — never committed)
+# buffd / polish (generated analytics db — never committed)
+/.buffd/
 /.polish/

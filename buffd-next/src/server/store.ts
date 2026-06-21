@@ -1,11 +1,11 @@
 /**
- * Polish — analytics store (server only).
+ * Buffd — analytics store (server only).
  *
  * Two interchangeable backends sit behind one async interface:
  *
  *   • SQLite via Node's built-in `node:sqlite` (Node 22+) — zero npm dependency,
  *     no native build, used for local development by default.
- *   • Postgres via `pg` — used in production, selected by `POLISH_DATABASE_URL`.
+ *   • Postgres via `pg` — used in production, selected by `BUFFD_DATABASE_URL`.
  *     Most modern hosts (Vercel, Netlify) run on a read-only, ephemeral
  *     filesystem where a local SQLite file can't persist, so real traffic must
  *     point at a networked database. See `DATABASE.md`.
@@ -18,8 +18,8 @@
  * The interface is async because Postgres is; the SQLite backend simply resolves
  * its synchronous results. Callers never know which backend is live.
  */
-import { defaultPolishConfig } from "../config";
-import type { PolishEvent, PolishEventRow } from "../shared/types";
+import { defaultBuffdConfig } from "../config";
+import type { BuffdEvent, BuffdEventRow } from "../shared/types";
 
 /**
  * A backend-agnostic row map. Queries are written once, in a portable SQL
@@ -29,7 +29,7 @@ type Row = Record<string, unknown>;
 
 interface Backend {
   /** Persist a batch of events for one session. Returns rows written. */
-  insert(sessionId: string, events: PolishEvent[]): Promise<number>;
+  insert(sessionId: string, events: BuffdEvent[]): Promise<number>;
   /** Run a read query. `?` placeholders are positional, in order. */
   query(sql: string, params?: unknown[]): Promise<Row[]>;
 }
@@ -39,7 +39,7 @@ const INSERT_COLS =
   "session_id, type, ts, path, selector, component, text, value, meta, received_at";
 
 /** Turn one event into its positional values, matching `INSERT_COLS`. */
-function eventValues(sessionId: string, e: PolishEvent, now: number): unknown[] {
+function eventValues(sessionId: string, e: BuffdEvent, now: number): unknown[] {
   return [
     sessionId,
     e.type,
@@ -61,7 +61,10 @@ import { dirname, isAbsolute, join } from "node:path";
 import { mkdirSync } from "node:fs";
 
 function resolveDbPath(): string {
-  const configured = process.env.POLISH_DB_PATH || defaultPolishConfig.databasePath;
+  // POLISH_DB_PATH is read as a fallback for apps migrated from the pre-rename
+  // build, so existing deployments keep working without env changes.
+  const configured =
+    process.env.BUFFD_DB_PATH || process.env.POLISH_DB_PATH || defaultBuffdConfig.databasePath;
   return isAbsolute(configured) ? configured : join(process.cwd(), configured);
 }
 
@@ -211,7 +214,8 @@ async function getBackend(): Promise<Backend | null> {
 
   initPromise = (async () => {
     try {
-      const url = process.env.POLISH_DATABASE_URL;
+      // POLISH_DATABASE_URL fallback keeps pre-rename deployments working.
+      const url = process.env.BUFFD_DATABASE_URL || process.env.POLISH_DATABASE_URL;
       if (url) {
         const pg = openPostgres(url);
         // Force the lazy connection now so a bad URL latches to no-op loudly,
@@ -223,7 +227,7 @@ async function getBackend(): Promise<Backend | null> {
       }
     } catch (err) {
       console.warn(
-        "[polish] analytics store unavailable, capture disabled:",
+        "[buffd] analytics store unavailable, capture disabled:",
         err instanceof Error ? err.message : err,
       );
       backend = null;
@@ -242,7 +246,7 @@ export async function storeReady(): Promise<boolean> {
 /** Persist a batch of events for one session. Silently drops if no store. */
 export async function insertEvents(
   sessionId: string,
-  events: PolishEvent[],
+  events: BuffdEvent[],
 ): Promise<number> {
   const b = await getBackend();
   if (!b || events.length === 0) return 0;
@@ -250,7 +254,7 @@ export async function insertEvents(
     return await b.insert(sessionId, events);
   } catch (err) {
     console.warn(
-      "[polish] insert failed, dropping batch:",
+      "[buffd] insert failed, dropping batch:",
       err instanceof Error ? err.message : err,
     );
     return 0;
@@ -269,7 +273,7 @@ export async function query(sql: string, params: unknown[] = []): Promise<Row[]>
     return await b.query(sql, params);
   } catch (err) {
     console.warn(
-      "[polish] query failed:",
+      "[buffd] query failed:",
       err instanceof Error ? err.message : err,
     );
     return [];
@@ -277,16 +281,16 @@ export async function query(sql: string, params: unknown[] = []): Promise<Row[]>
 }
 
 /** Raw rows, newest first. For debugging and the queries layer. */
-export async function allRows(limit = 1000): Promise<PolishEventRow[]> {
+export async function allRows(limit = 1000): Promise<BuffdEventRow[]> {
   const rows = await query(`SELECT * FROM events ORDER BY id DESC LIMIT ?`, [limit]);
   return rows.map(deserialize);
 }
 
-function deserialize(row: Row): PolishEventRow {
+function deserialize(row: Row): BuffdEventRow {
   return {
     id: Number(row.id),
     session_id: row.session_id as string,
-    type: row.type as PolishEventRow["type"],
+    type: row.type as BuffdEventRow["type"],
     ts: Number(row.ts),
     path: row.path as string,
     selector: (row.selector as string) ?? undefined,
@@ -302,12 +306,12 @@ function deserialize(row: Row): PolishEventRow {
  * Normalize the `meta` column across backends: SQLite stores it as a JSON
  * string, Postgres' JSONB comes back already parsed. Accept either.
  */
-export function parseMeta(raw: unknown): PolishEventRow["meta"] {
+export function parseMeta(raw: unknown): BuffdEventRow["meta"] {
   if (raw == null) return undefined;
-  if (typeof raw === "object") return raw as PolishEventRow["meta"];
+  if (typeof raw === "object") return raw as BuffdEventRow["meta"];
   if (typeof raw === "string") {
     try {
-      return JSON.parse(raw) as PolishEventRow["meta"];
+      return JSON.parse(raw) as BuffdEventRow["meta"];
     } catch {
       return undefined;
     }

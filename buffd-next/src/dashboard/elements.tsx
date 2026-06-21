@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Polish — "Interactions by element" body (client).
+ * Buffd — "Interactions by element" body (client).
  *
  * Renders the element rows for the friction-by-element table, collapsed to the
  * three most recently interacted-with elements by default with a "Show more"
@@ -13,7 +13,7 @@
  */
 import { useState } from "react";
 
-import type { FrictionElement } from "@/polish/server/queries";
+import type { FrictionElement } from "../server/queries";
 
 const border = "border-[#2e2e2e]";
 const divider = `border-t ${border}`;

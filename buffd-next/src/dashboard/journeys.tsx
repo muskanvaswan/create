@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Polish — sampled user journeys (client).
+ * Buffd — sampled user journeys (client).
  *
  * Renders the sampled sessions as a compact, scannable list of cards. Clicking
  * a card opens a right-side drawer with the full session summary: metadata plus
@@ -11,7 +11,7 @@
  */
 import { useEffect, useState } from "react";
 
-import type { JourneyStep, SessionJourney } from "@/polish/server/queries";
+import type { JourneyStep, SessionJourney } from "../server/queries";
 
 // ── Design tokens (kept in sync with page.tsx's Vercel aesthetic) ─────────────
 const border = "border-[#2e2e2e]";
