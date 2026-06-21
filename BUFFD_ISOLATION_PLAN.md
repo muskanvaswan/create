@@ -50,8 +50,11 @@ server must never ship to the client. So the package exposes separate exports:
 Session cookie minting stays in the **proxy** (Next 16's `middleware`
 replacement), not the ingest route. The historical footgun — *the matcher must
 exclude all of `/api`, or the whole `/api` segment 404s under Next 16 +
-Turbopack* — is neutralized by **shipping the correct matcher from the package**.
-Consumers re-export `{ proxy, config }` and never hand-write the regex.
+Turbopack* — is real, but Next **statically parses `config.matcher`**, so it must
+be an inline literal in the consumer's proxy file: it cannot be imported or
+re-exported from the package. The package instead exposes `withBuffdSession`
+(cookie logic) + `createBuffdProxy(config)`, and the **`init` CLI scaffolds the
+correct matcher literal** so the consumer never hand-writes it.
 
 ### Auth: optional `authenticate` callback, unguarded by default
 
@@ -161,8 +164,13 @@ npx @buffd/next init    # scaffolds the glue files
 Glue files the init command writes:
 
 ```ts
-// src/proxy.ts
-export { proxy, config } from "@buffd/next/proxy";
+// src/proxy.ts  (matcher must be an inline literal — Next can't import it)
+import type { NextRequest } from "next/server";
+import { withBuffdSession } from "@buffd/next/proxy";
+export function proxy(request: NextRequest) { return withBuffdSession(request); }
+export const config = {
+  matcher: ["/((?!api|_next/static|_next/image|favicon|assets).*)"],
+};
 
 // src/instrumentation-client.ts
 import { initBuffd } from "@buffd/next/client";
@@ -171,8 +179,10 @@ initBuffd();
 // src/app/api/buffd/route.ts
 export { POST, runtime, dynamic } from "@buffd/next/route";
 
-// src/app/buffd/page.tsx  (unguarded by default)
+// src/app/buffd/page.tsx  (unguarded by default; runtime/dynamic inline)
 import { createBuffdPage } from "@buffd/next/dashboard";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export default createBuffdPage();
 ```
 
@@ -214,12 +224,44 @@ it auto-uses `node:sqlite` → `.buffd/analytics.db`.
 9. **Publish** — `npm link` (or `file:`) into `create` first; publish to npm only
    after the Postgres backend + dashboard are validated on real traffic.
 
-### `create` migration (separate, NOT done on this branch)
+### `create` migration — DONE (in-repo workspace, not a separate repo)
 
-Deferred because it would break the live app and needs the linked/published
-package. When ready: `npm link @buffd/next`; delete `src/polish/**` and
-`src/app/polish/*` (keep `login.tsx`); shrink the glue files to package imports;
-repoint `src/app/_components/polish-monitor.tsx` usage to `BuffdMonitor` from
-`@buffd/next/client`; keep `@/lib/auth` wiring local, injected via `authenticate`.
-Carry over the gotcha: after `npm link`, `rm -rf .next` and restart
-`next dev --turbopack` (linking poisons the Turbopack cache).
+Per the decision to stay single-repo until a global publish, `buffd-next/` lives
+**inside** `create` as an **npm workspace**, and `create` consumes `@buffd/next`
+from it. One repo, one install, one PR; edits to the package require a rebuild
+(`npm run build -w @buffd/next`, wired into `create`'s `dev`/`build` scripts).
+
+What was done:
+- Root `package.json`: `"workspaces": ["buffd-next"]`, dependency `@buffd/next`,
+  and `dev`/`build` build the package first.
+- `next.config.ts`: `transpilePackages: ["@buffd/next"]` (resolves the ESM/RSC
+  dist like first-party code).
+- `tailwind.config.ts`: scans `buffd-next/src` so dashboard classes generate.
+- `tsconfig.json`: excludes `buffd-next` (the workspace typechecks itself).
+- `buffd.config.ts`: pins legacy values for **production continuity** —
+  `sessionCookie: "polish_session"`, `apiRoute: "/api/polish"`. The package also
+  reads `POLISH_DATABASE_URL`/`POLISH_DB_PATH` as fallbacks, so **no Vercel env
+  change is needed** and the dashboard stays at `/polish`. (Note: the store reads
+  its SQLite path from env/default, not the config object, so the local-dev DB
+  lives at `.buffd/analytics.db` — disposable and gitignored. Set `BUFFD_DB_PATH`
+  to relocate it. Making `config.databasePath` authoritative is a package
+  follow-up.)
+- Glue files (`src/proxy.ts`, `src/instrumentation-client.ts`,
+  `src/app/api/polish/route.ts`, `src/app/polish/page.tsx`) now call the package,
+  injecting `buffd.config`. `login.tsx` + `layout.tsx` stay app-local; auth is
+  injected via `authenticate` (with the original local-dev skip preserved).
+- Deleted `src/polish/**`, the four moved dashboard tables,
+  `src/app/_components/polish-monitor.tsx` (now `BuffdMonitor` from
+  `@buffd/next/client`), `src/types/node-sqlite.d.ts`, and `polish.config.ts`.
+
+Verified: package typecheck + build, `create` typecheck, full `next build`, and a
+runtime smoke test (`/polish` renders, store "collecting", proxy sets
+`polish_session`, no console errors).
+
+### When ready to publish globally
+
+Extract `buffd-next/` to its own repo, flip `create`'s dependency from
+`"@buffd/next": "*"` (workspace) to a version range, `npm publish`. The package's
+`exports` already point to `dist`, so nothing structural changes. Carry over the
+Turbopack gotcha: after dependency changes, `rm -rf .next` and restart the dev
+server (it poisons the cache).

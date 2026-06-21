@@ -5,6 +5,8 @@ const config: Config = {
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    // The Buffd dashboard's Tailwind classes live in the workspace package.
+    "./buffd-next/src/**/*.{ts,tsx}",
   ],
   theme: {
     extend: {
