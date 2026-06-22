@@ -39,39 +39,42 @@ regenerated audio, so the public site catches up as soon as the triggered
 deploy finishes (about a minute). The admin editor itself reads through the
 GitHub API, so it always sees the latest content immediately.
 
-## Polish — behavioral friction analytics (Stage 1)
+## Buffd — product analytics (Stage 1)
 
-Polish is a self-contained analytics + iterative-improvement pipeline living under
-`src/polish/`. Stage 1 (the Collector) is implemented: it captures behavioral
-friction signals and surfaces them on an embedded dashboard. It is namespaced so
-it can later be extracted into a standalone `@polish/next` package.
+> _What gets measured gets improved._
+
+This app ships with [`@buffd/next`](buffd-next/), a self-contained analytics +
+iterative-improvement pipeline consumed as an in-repo npm workspace. Stage 1 (the
+Collector) is implemented: it captures real user behavioral signals and surfaces
+them on an embedded dashboard.
 
 **What it captures (no PII):** page views (incl. soft navigations), clicks, rage
 clicks (3+ rapid clicks on one element), dead clicks (clicks on non-interactive
 elements), per-page scroll depth, uncaught JS errors, and Core Web Vitals (LCP,
 CLS). Events are batched client-side and flushed every 10s and on page unload.
 
-**How it's wired:**
+**How it's wired (the package does the work; these are thin glue files):**
 
-- `src/instrumentation-client.ts` → boots capture before hydration via `initPolish`.
-- `src/proxy.ts` → assigns an anonymous, httpOnly `polish_session` cookie
+- `src/instrumentation-client.ts` → boots capture before hydration via `initBuffd`.
+- `src/proxy.ts` → assigns an anonymous, httpOnly session cookie via the package
   (random UUID, no fingerprinting, GDPR-safe). This is Next.js 16's replacement
   for `middleware.ts`. Its matcher **must exclude `/api`** — under Next 16 +
   Turbopack, letting the proxy match any `/api/*` route breaks resolution for the
   whole `/api` segment (404s).
 - `src/app/api/polish/route.ts` → ingest endpoint; attributes events to the
   cookie's session, never to a client-supplied id.
-- `src/app/polish/page.tsx` → the dashboard at `/polish`: weighted friction
-  ranking per page, a per-element breakdown (by `data-component` or selector),
-  recent errors, and an `ⓘ` tooltip on every metric explaining its calculation.
-- `polish.config.ts` → the single tuning file (thresholds, sample rate, etc.).
+- `src/app/polish/page.tsx` → the dashboard at `/polish`: a weighted score per
+  page, a per-element breakdown (by `data-component` or selector), recent errors,
+  and an `ⓘ` tooltip on every metric explaining its calculation.
+- `buffd.config.ts` → the single tuning file (thresholds, sample rate, and the
+  legacy cookie/route names pinned for continuity).
 
 **Storage:** local dev uses SQLite via Node's built-in `node:sqlite` (no
-dependency, no native build) at `.polish/analytics.db` (gitignored). On a
+dependency, no native build) at `.buffd/analytics.db` (gitignored). On a
 read-only filesystem (e.g. Vercel) the store **degrades to a safe no-op** so it
 can never break the live site — the dashboard shows a notice instead. Production
 capture needs a writable database (Postgres/Turso) — see
-[`src/polish/DATABASE.md`](src/polish/DATABASE.md) for setup.
+[`buffd-next/DATABASE.md`](buffd-next/DATABASE.md) for setup.
 
 This is the existing [blog-starter](https://github.com/vercel/next.js/tree/canary/examples/blog-starter) plus TypeScript.
 

@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Polish — Friction Dashboard",
+  title: "Buffd — What gets measured gets improved",
   robots: { index: false, follow: false },
 };
 
