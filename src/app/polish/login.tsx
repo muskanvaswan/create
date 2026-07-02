@@ -105,9 +105,9 @@ export function PolishLogin({ hasPasskey }: { hasPasskey: boolean }) {
     <div className="flex min-h-dvh items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-lg border border-[#2e2e2e] bg-[#0a0a0a] px-8 py-10">
         <p className="mb-1 text-[11px] font-medium uppercase tracking-[0.08em] text-[#666]">
-          Polish
+          Buffd
         </p>
-        <h1 className="text-[17px] font-semibold text-white">Friction Dashboard</h1>
+        <h1 className="text-[17px] font-semibold text-white">What gets measured gets improved</h1>
         <p className="mt-1.5 text-[13px] text-[#666]">
           {hasPasskey
             ? "Enter your password, or sign in with your passkey."

@@ -1,5 +1,5 @@
 /**
- * @buffd/next/dashboard — the friction dashboard.
+ * @buffd/next/dashboard — the Buffd dashboard.
  *
  *   // src/app/buffd/page.tsx
  *   import { createBuffdPage } from "@buffd/next/dashboard";
@@ -15,30 +15,33 @@
  *   });
  */
 import type { Metadata } from "next";
+import { after } from "next/server";
 import type { ReactNode } from "react";
 
 import {
-  getDeviceBreakdown,
-  getFrictionElements,
-  getMonitoredComponents,
-  getOverview,
-  getRecentErrors,
-  getSessionJourneys,
-  getTopInteractions,
-  getTopPages,
+  loadBuffdDashboardData,
+  type BuffdDashboardData,
   type DeviceBucket,
   type MonitoredComponent,
 } from "../server/queries";
+import { loadProfileState } from "../ai/profile";
+import { generateSummary, getAISettingsPublic, loadSummaryState } from "../ai/summary";
+import type {
+  BuffdAISettingsPublic,
+  BuffdProjectProfile,
+  BuffdSummary,
+} from "../ai/types";
 import ElementsTable from "./elements";
 import TopFeaturesTable from "./features";
 import JourneyList from "./journeys";
 import TopPagesTable from "./pages";
+import SummaryCard from "./summary";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Buffd — Friction Dashboard",
+  title: "Buffd — What gets measured gets improved",
   robots: { index: false, follow: false },
 };
 
@@ -175,7 +178,7 @@ function fmtMs(ms: number): string {
 }
 
 function MonitoredRow({ m }: { m: MonitoredComponent }) {
-  const hasFriction = m.rageClicks > 0 || m.deadClicks > 0;
+  const hasIssues = m.rageClicks > 0 || m.deadClicks > 0;
   return (
     <tr className={`${divider} first:border-t-0 align-top`}>
       <td className="py-2.5 pl-5 pr-4 min-w-[160px]">
@@ -184,9 +187,9 @@ function MonitoredRow({ m }: { m: MonitoredComponent }) {
           <span className="rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider bg-purple-950 text-purple-400">
             monitored
           </span>
-          {hasFriction && (
+          {hasIssues && (
             <span className="rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider bg-red-950 text-red-400">
-              friction
+              issues
             </span>
           )}
         </div>
@@ -222,35 +225,31 @@ function MonitoredRow({ m }: { m: MonitoredComponent }) {
 }
 
 // ── Data loading ─────────────────────────────────────────────────────────────
-export interface BuffdDashboardData {
-  overview: Awaited<ReturnType<typeof getOverview>>;
-  pages: Awaited<ReturnType<typeof getTopPages>>;
-  elements: Awaited<ReturnType<typeof getFrictionElements>>;
-  devices: Awaited<ReturnType<typeof getDeviceBreakdown>>;
-  topUsed: Awaited<ReturnType<typeof getTopInteractions>>;
-  journeys: Awaited<ReturnType<typeof getSessionJourneys>>;
-  errors: Awaited<ReturnType<typeof getRecentErrors>>;
-  monitored: Awaited<ReturnType<typeof getMonitoredComponents>>;
-}
+// `loadBuffdDashboardData` + `BuffdDashboardData` now live in server/queries so
+// the AI summary layer can share them without importing React; re-export for
+// any existing callers of this module.
+export { loadBuffdDashboardData, type BuffdDashboardData } from "../server/queries";
 
-/** Fetch every dashboard query in parallel. Server-only. */
-export async function loadBuffdDashboardData(): Promise<BuffdDashboardData> {
-  const [overview, pages, elements, devices, topUsed, journeys, errors, monitored] =
-    await Promise.all([
-      getOverview(),
-      getTopPages(8),
-      getFrictionElements(12),
-      getDeviceBreakdown(),
-      getTopInteractions(12),
-      getSessionJourneys(6),
-      getRecentErrors(8),
-      getMonitoredComponents(),
-    ]);
-  return { overview, pages, elements, devices, topUsed, journeys, errors, monitored };
+/** The AI summary card's server-loaded inputs. */
+export interface BuffdAIBundle {
+  summary: BuffdSummary | null;
+  settings: BuffdAISettingsPublic;
+  stale: boolean;
+  profile: BuffdProjectProfile | null;
+  /** Analytics component identifiers the profile doesn't cover. */
+  gaps: string[];
+  /** Whether the source tree is on disk here (codebase scan possible). */
+  sourceAvailable: boolean;
 }
 
 // ── Dashboard (presentational) ───────────────────────────────────────────────
-export function BuffdDashboard({ data }: { data: BuffdDashboardData }) {
+export function BuffdDashboard({
+  data,
+  ai,
+}: {
+  data: BuffdDashboardData;
+  ai: BuffdAIBundle;
+}) {
   const { overview, pages, elements, devices, topUsed, journeys, errors, monitored } = data;
 
   return (
@@ -260,7 +259,7 @@ export function BuffdDashboard({ data }: { data: BuffdDashboardData }) {
         <div>
           <p className={label}>Buffd</p>
           <h1 className="mt-1 text-[22px] font-semibold tracking-tight text-white">
-            Friction Dashboard
+            What gets measured gets improved
           </h1>
           <p className="mt-1 text-[13px] text-[#666]">
             Stage 1 — Capture. Hover{" "}
@@ -285,6 +284,16 @@ export function BuffdDashboard({ data }: { data: BuffdDashboardData }) {
           database — see the <span className="font-mono text-amber-300">@buffd/next</span> DATABASE.md guide.
         </div>
       )}
+
+      {/* AI summary — the model's story of how people use the site */}
+      <SummaryCard
+        initialSummary={ai.summary}
+        initialSettings={ai.settings}
+        initialStale={ai.stale}
+        initialProfile={ai.profile}
+        initialGaps={ai.gaps}
+        sourceAvailable={ai.sourceAvailable}
+      />
 
       {/* Stats */}
       <Section title="Overview">
@@ -370,7 +379,7 @@ export function BuffdDashboard({ data }: { data: BuffdDashboardData }) {
             Monitored components
             <InfoTip
               anchor="left"
-              text="Components explicitly wrapped in <BuffdMonitor>. Shows viewport engagement (views, avg time visible, scroll depth, dimensions) alongside click friction. A high view count with low clicks often signals interest without commitment."
+              text="Components explicitly wrapped in <BuffdMonitor>. Shows viewport engagement (views, avg time visible, scroll depth, dimensions) alongside click activity. A high view count with low clicks often signals interest without commitment."
             />
           </>
         }
@@ -415,7 +424,7 @@ export function BuffdDashboard({ data }: { data: BuffdDashboardData }) {
             Sampled user journeys
             <InfoTip
               anchor="left"
-              text="Full sessions sampled and ranked by friction (rage×3 + dead×2 + errors×2.5), preferring complete recordings and recent ones. Click a session to open its start-to-finish flow chart."
+              text="Full sessions sampled and ranked by a composite score (rage×3 + dead×2 + errors×2.5), preferring complete recordings and recent ones. Click a session to open its start-to-finish flow chart."
             />
           </>
         }
@@ -463,7 +472,7 @@ export function BuffdDashboard({ data }: { data: BuffdDashboardData }) {
             Interactions by element
             <InfoTip
               anchor="left"
-              text="Click-type events grouped by DOM selector. This is which UI element the friction is on — the primary input to Stage 2 synthesis. Components wrapped in <BuffdMonitor> are listed separately under Monitored components."
+              text="Click-type events grouped by DOM selector. This is which UI element the issues are on — the primary input to Stage 2 synthesis. Components wrapped in <BuffdMonitor> are listed separately under Monitored components."
             />
           </>
         }
@@ -556,6 +565,52 @@ export function createBuffdPage(opts: CreateBuffdPageOptions = {}) {
     }
 
     const data = await loadBuffdDashboardData();
-    return <BuffdDashboard data={data} />;
+    const [summaryState, settings, profileState] = await Promise.all([
+      loadSummaryState(data),
+      getAISettingsPublic(),
+      loadProfileState(data),
+    ]);
+
+    // Cadence-based auto-refresh: when the owner opted into daily/weekly and
+    // the summary is both past its cadence AND built from different data,
+    // regenerate in the background after this response is sent. Unchanged data
+    // never triggers a model call, so the cadence only spends tokens when
+    // there's genuinely new behavior to narrate.
+    const cadence = settings.refreshCadence ?? "manual";
+    if (
+      cadence !== "manual" &&
+      settings.hasApiKey &&
+      data.overview.ready &&
+      data.overview.totalEvents > 0
+    ) {
+      const cadenceMs = cadence === "daily" ? 86_400_000 : 604_800_000;
+      const due =
+        summaryState.summary === null ||
+        (summaryState.stale &&
+          Date.now() - summaryState.summary.generatedAt > cadenceMs);
+      if (due) {
+        after(async () => {
+          try {
+            await generateSummary();
+          } catch (err) {
+            console.warn("[buffd] scheduled summary refresh failed:", err);
+          }
+        });
+      }
+    }
+
+    return (
+      <BuffdDashboard
+        data={data}
+        ai={{
+          summary: summaryState.summary,
+          settings,
+          stale: summaryState.stale,
+          profile: profileState.profile,
+          gaps: profileState.gaps,
+          sourceAvailable: profileState.sourceAvailable,
+        }}
+      />
+    );
   };
 }

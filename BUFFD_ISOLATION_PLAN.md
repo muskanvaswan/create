@@ -1,6 +1,6 @@
 # Isolating Polish into `@buffd/next`
 
-> Plan to extract the in-app friction-analytics pipeline (`src/polish/**` +
+> Plan to extract the in-app behavioral-analytics pipeline (`src/polish/**` +
 > dashboard + glue) into a standalone, installable npm package, **`@buffd/next`**,
 > published under the `buffd` org. Authored 2026-06-21.
 
