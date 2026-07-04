@@ -38,6 +38,10 @@ type NoteListItem = {
 type Props = {
   notes: NoteListItem[];
   children: React.ReactNode;
+  /** Prefix applied to all internal links, e.g. "/embedd". Defaults to "". */
+  basePath?: string;
+  /** Whether to render the macOS traffic-light window controls. */
+  windowControls?: boolean;
 };
 
 function dateBucket(date: Date, now: Date): string {
@@ -113,9 +117,16 @@ function ShareButton({ title }: { title: string }) {
   );
 }
 
-export function NotesApp({ notes, children }: Props) {
+export function NotesApp({
+  notes,
+  children,
+  basePath = "",
+  windowControls = true,
+}: Props) {
   const pathname = usePathname();
   const router = useRouter();
+  const postsPrefix = `${basePath}/posts/`;
+  const homePath = basePath || "/";
   const [query, setQuery] = useState("");
   const [folder, setFolder] = useState<string | null>(null);
   const [sidebarHidden, setSidebarHidden] = useState(false);
@@ -137,13 +148,13 @@ export function NotesApp({ notes, children }: Props) {
       );
     });
     if (newVisible.length > 0) {
-      router.push(`/posts/${newVisible[0].slug}`);
+      router.push(`${postsPrefix}${newVisible[0].slug}`);
     } else {
-      router.push("/");
+      router.push(homePath);
     }
   };
 
-  const isNoteOpen = pathname.startsWith("/posts/");
+  const isNoteOpen = pathname.startsWith(postsPrefix);
   const now = useMemo(() => new Date(), []);
 
   const folders = useMemo(() => {
@@ -174,7 +185,7 @@ export function NotesApp({ notes, children }: Props) {
   const groups = [...grouped.entries()];
 
   const activeSlug = isNoteOpen
-    ? decodeURIComponent(pathname.slice("/posts/".length))
+    ? decodeURIComponent(pathname.slice(postsPrefix.length))
     : visible[0]?.slug;
 
   const activeNote = notes.find((note) => note.slug === activeSlug);
@@ -196,7 +207,7 @@ export function NotesApp({ notes, children }: Props) {
         <div className="hidden w-56 shrink-0 flex-col bg-white/75 dark:bg-[#211d29]/90 lg:flex">
           <aside className="flex-grow flex flex-col my-2 ml-2 mr-0 rounded-2xl border border-black/[0.12] dark:border-white/[0.12] bg-gradient-to-b from-white/12 to-transparent dark:from-white/[0.03] dark:to-transparent backdrop-blur-md shadow-lg">
             <div className="flex h-14 shrink-0 items-center justify-between px-4">
-              <TrafficLights />
+              {windowControls ? <TrafficLights /> : <span />}
               {sidebarToggle}
             </div>
             <nav className="flex-1 overflow-y-auto px-2 pb-4">
@@ -235,9 +246,11 @@ export function NotesApp({ notes, children }: Props) {
           <div className="flex h-full w-72 shrink-0 items-center border-r border-black/10 px-4 dark:border-white/10 lg:w-80">
             <div className="flex flex-1 items-center justify-between min-w-0">
               <div className="flex min-w-0 items-center gap-2">
-                <span className={cn(sidebarHidden ? "flex" : "lg:hidden")}>
-                  <TrafficLights />
-                </span>
+                {windowControls && (
+                  <span className={cn(sidebarHidden ? "flex" : "lg:hidden")}>
+                    <TrafficLights />
+                  </span>
+                )}
                 {sidebarHidden && sidebarToggle}
                 <div className="min-w-0">
                   <p className="truncate text-[15px] font-semibold leading-tight">
@@ -381,6 +394,7 @@ export function NotesApp({ notes, children }: Props) {
                         now={now}
                         active={note.slug === activeSlug}
                         showFolder={folder === null}
+                        basePath={basePath}
                       />
                       {i < items.length - 1 && (
                         <div className="mx-3 h-px bg-black/5 dark:bg-white/5" />
@@ -407,7 +421,7 @@ export function NotesApp({ notes, children }: Props) {
             {isNoteOpen && (
               <div className="sticky top-0 z-10 flex items-center justify-between px-3 pb-1 pt-3 sm:hidden">
                 <Link
-                  href="/"
+                  href={homePath}
                   aria-label="Back to notes"
                   className={cn(
                     "flex h-10 w-10 items-center justify-center rounded-full text-neutral-700 dark:text-neutral-200",
@@ -532,15 +546,17 @@ function NoteRow({
   now,
   active,
   showFolder,
+  basePath,
 }: {
   note: NoteListItem;
   now: Date;
   active: boolean;
   showFolder: boolean;
+  basePath: string;
 }) {
   return (
     <Link
-      href={`/posts/${note.slug}`}
+      href={`${basePath}/posts/${note.slug}`}
       className={cn(
         "block rounded-xl px-3 py-2.5 max-sm:rounded-none max-sm:px-4 max-sm:py-3 max-sm:active:bg-black/5 dark:max-sm:active:bg-white/10",
         active
