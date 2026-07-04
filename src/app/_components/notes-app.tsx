@@ -243,7 +243,12 @@ export function NotesApp({
         {/* Toolbar (desktop/tablet only) */}
         <header className="hidden h-14 shrink-0 items-center border-b border-black/10 dark:border-white/10 bg-white/75 dark:bg-[#211d29]/90 sm:flex">
           {/* Notes list header part */}
-          <div className="flex h-full w-72 shrink-0 items-center border-r border-black/10 px-4 dark:border-white/10 lg:w-80">
+          <div
+            className={cn(
+              "flex h-full w-72 shrink-0 items-center border-r border-black/10 px-4 dark:border-white/10 lg:w-80",
+              !windowControls && sidebarHidden && "pl-20",
+            )}
+          >
             <div className="flex flex-1 items-center justify-between min-w-0">
               <div className="flex min-w-0 items-center gap-2">
                 {windowControls && (
