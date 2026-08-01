@@ -247,7 +247,7 @@ export function GlassWindow({ children }: { children: React.ReactNode }) {
           top: `${position.y}px`,
         } : undefined}
         className={cn(
-          "overflow-hidden rounded-none bg-[#f2f2f7] dark:bg-black sm:bg-[#f4f4f3]/75 sm:dark:bg-[#251d31]/70 sm:shadow-[0_45px_115px_-15px_rgba(0,0,0,0.5),0_15px_45px_-10px_rgba(0,0,0,0.3)] sm:dark:shadow-[0_45px_115px_-15px_rgba(0,0,0,0.85),0_15px_45px_-10px_rgba(0,0,0,0.5)] sm:ring-1 sm:ring-black/10 sm:backdrop-blur-2xl sm:dark:ring-white/10 sm:rounded-[1.4rem]",
+          "glass-window overflow-hidden rounded-none bg-[#f2f2f7] dark:bg-black sm:bg-[#f4f4f3]/75 sm:dark:bg-[#251d31]/70 sm:shadow-[0_45px_115px_-15px_rgba(0,0,0,0.5),0_15px_45px_-10px_rgba(0,0,0,0.3)] sm:dark:shadow-[0_45px_115px_-15px_rgba(0,0,0,0.85),0_15px_45px_-10px_rgba(0,0,0,0.5)] sm:ring-1 sm:ring-black/10 sm:backdrop-blur-2xl sm:dark:ring-white/10 sm:rounded-[1.4rem]",
           isMobile ? "w-full h-full" : "absolute shrink-0"
         )}
       >

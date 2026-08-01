@@ -27,20 +27,21 @@
     background-position: center;
   }
 
-  /* Desktop header grab cursor */
+  /* Desktop header grab cursor — only the draggable glass window, not the
+     embedd page, where the header can't move anything. */
   @media (min-width: 640px) {
-    header {
+    .glass-window header {
       cursor: grab;
     }
-    header:active {
+    .glass-window header:active {
       cursor: grabbing;
     }
     /* Allow cursor override for buttons and inputs in header */
-    header button,
-    header input,
-    header select,
-    header a,
-    header [role="button"] {
+    .glass-window header button,
+    .glass-window header input,
+    .glass-window header select,
+    .glass-window header a,
+    .glass-window header [role="button"] {
       cursor: default;
     }
   }

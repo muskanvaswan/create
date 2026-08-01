@@ -246,7 +246,10 @@ export function NotesApp({
           <div
             className={cn(
               "flex h-full w-72 shrink-0 items-center border-r border-black/10 px-4 dark:border-white/10 lg:w-80",
-              !windowControls && sidebarHidden && "pl-20",
+              // The embedding site draws its own traffic lights over the top-left
+              // corner, so keep the title clear of them whenever the folders pane
+              // isn't occupying that corner (hidden by toggle, or below lg).
+              !windowControls && (sidebarHidden ? "pl-20" : "pl-20 lg:pl-4"),
             )}
           >
             <div className="flex flex-1 items-center justify-between min-w-0">
