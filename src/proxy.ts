@@ -1,13 +1,13 @@
-import { createBuffdProxy } from "@buffd/next/proxy";
+import { createPolishdProxy } from "@polishd/next/proxy";
 
-import buffdConfig from "../buffd.config";
+import polishdConfig from "../polishd.config";
 
 /**
- * Root proxy (Next.js 16's replacement for `middleware.ts`). Delegates to Buffd,
+ * Root proxy (Next.js 16's replacement for `middleware.ts`). Delegates to Polishd,
  * which assigns the anonymous analytics session cookie (legacy `polish_session`
- * name, from buffd.config). Thread additional logic through here if needed.
+ * name, from polishd.config). Thread additional logic through here if needed.
  */
-const { proxy } = createBuffdProxy(buffdConfig);
+const { proxy } = createPolishdProxy(polishdConfig);
 
 export { proxy };
 

@@ -39,11 +39,11 @@ regenerated audio, so the public site catches up as soon as the triggered
 deploy finishes (about a minute). The admin editor itself reads through the
 GitHub API, so it always sees the latest content immediately.
 
-## Buffd — product analytics (Stage 1)
+## Polishd — product analytics (Stage 1)
 
 > _What gets measured gets improved._
 
-This app ships with [`@buffd/next`](buffd-next/), a self-contained analytics +
+This app ships with [`@polishd/next`](polishd-next/), a self-contained analytics +
 iterative-improvement pipeline consumed as an in-repo npm workspace. Stage 1 (the
 Collector) is implemented: it captures real user behavioral signals and surfaces
 them on an embedded dashboard.
@@ -55,7 +55,7 @@ CLS). Events are batched client-side and flushed every 10s and on page unload.
 
 **How it's wired (the package does the work; these are thin glue files):**
 
-- `src/instrumentation-client.ts` → boots capture before hydration via `initBuffd`.
+- `src/instrumentation-client.ts` → boots capture before hydration via `initPolishd`.
 - `src/proxy.ts` → assigns an anonymous, httpOnly session cookie via the package
   (random UUID, no fingerprinting, GDPR-safe). This is Next.js 16's replacement
   for `middleware.ts`. Its matcher **must exclude `/api`** — under Next 16 +
@@ -66,15 +66,15 @@ CLS). Events are batched client-side and flushed every 10s and on page unload.
 - `src/app/polish/page.tsx` → the dashboard at `/polish`: a weighted score per
   page, a per-element breakdown (by `data-component` or selector), recent errors,
   and an `ⓘ` tooltip on every metric explaining its calculation.
-- `buffd.config.ts` → the single tuning file (thresholds, sample rate, and the
+- `polishd.config.ts` → the single tuning file (thresholds, sample rate, and the
   legacy cookie/route names pinned for continuity).
 
 **Storage:** local dev uses SQLite via Node's built-in `node:sqlite` (no
-dependency, no native build) at `.buffd/analytics.db` (gitignored). On a
+dependency, no native build) at `.polishd/analytics.db` (gitignored). On a
 read-only filesystem (e.g. Vercel) the store **degrades to a safe no-op** so it
 can never break the live site — the dashboard shows a notice instead. Production
 capture needs a writable database (Postgres/Turso) — see
-[`buffd-next/DATABASE.md`](buffd-next/DATABASE.md) for setup.
+[`polishd-next/DATABASE.md`](polishd-next/DATABASE.md) for setup.
 
 This is the existing [blog-starter](https://github.com/vercel/next.js/tree/canary/examples/blog-starter) plus TypeScript.
 
