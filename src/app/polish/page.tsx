@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { createBuffdPage } from "@buffd/next/dashboard";
+import { createPolishdPage } from "@polishd/next/dashboard";
 
 import { hasRegisteredPasskey, isAuthenticated } from "@/lib/auth";
 import { PolishLogin } from "./login";
@@ -11,13 +11,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Buffd — What gets measured gets improved",
+  title: "Polishd — What gets measured gets improved",
   robots: { index: false, follow: false },
 };
 
 // Same gate as before: skip auth in local dev (SQLite, no real visitors);
 // require a passkey in production. The passkey login UI stays app-local.
-export default createBuffdPage({
+export default createPolishdPage({
   authenticate: async () =>
     process.env.NODE_ENV !== "production" || (await isAuthenticated()),
   unauthorized: <PolishLogin hasPasskey={hasRegisteredPasskey()} />,

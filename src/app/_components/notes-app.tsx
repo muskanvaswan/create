@@ -21,7 +21,7 @@ import {
 import { Pill } from "./pill";
 import { TrafficLights } from "./traffic-lights";
 import { ListenButton } from "./listen-button";
-import { BuffdMonitor } from "@buffd/next/client";
+import { PolishdMonitor } from "@polishd/next/client";
 /** iOS-style glass surface used by the mobile buttons and search bar. */
 const mobileGlass =
   "border border-black/10 bg-gradient-to-br from-white/95 to-white/65 shadow-md backdrop-blur-xl dark:border-white/[0.12] dark:from-white/[0.18] dark:to-white/[0.06]";
@@ -308,9 +308,9 @@ export function NotesApp({
               <Pill>
                 {activeNote && activeNote.hasAudio && (
                   <>
-                    <BuffdMonitor name="listen-button">
+                    <PolishdMonitor name="listen-button">
                       <ListenButton src={`/api/audio/${activeNote.slug}`} />
-                    </BuffdMonitor>
+                    </PolishdMonitor>
                     <div className="h-4 w-px bg-black/10 dark:bg-white/10 mx-1" />
                   </>
                 )}
@@ -441,9 +441,9 @@ export function NotesApp({
                 <div className="flex items-center gap-2.5">
                   {activeNote?.hasAudio && (
                     <span className={cn("flex h-10 items-center rounded-full px-2", mobileGlass)}>
-                      <BuffdMonitor name="listen-button">
+                      <PolishdMonitor name="listen-button">
                         <ListenButton src={`/api/audio/${activeNote.slug}`} />
-                      </BuffdMonitor>
+                      </PolishdMonitor>
                     </span>
                   )}
                   <span className={cn("flex h-10 w-10 items-center justify-center rounded-full", mobileGlass)}>
@@ -453,9 +453,9 @@ export function NotesApp({
               </div>
             )}
             {activeNote ? (
-              <BuffdMonitor name={activeNote.slug} content className="block">
+              <PolishdMonitor name={activeNote.slug} content className="block">
                 {children}
-              </BuffdMonitor>
+              </PolishdMonitor>
             ) : children}
           </main>
         </div>
