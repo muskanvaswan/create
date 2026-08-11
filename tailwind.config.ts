@@ -5,8 +5,9 @@ const config: Config = {
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
-    // The Polishd dashboard's Tailwind classes live in the workspace package.
-    "./polishd-next/src/**/*.{ts,tsx}",
+    // The Polishd dashboard ships no CSS of its own; generate its utilities
+    // from the installed package. Tailwind does not scan node_modules by default.
+    "./node_modules/@polishd/next/dist/**/*.js",
   ],
   theme: {
     extend: {

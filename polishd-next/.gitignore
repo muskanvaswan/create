@@ -1,6 +1,0 @@
-node_modules/
-dist/
-.polishd/
-*.tsbuildinfo
-.DS_Store
-npm-debug.log*
