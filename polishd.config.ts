@@ -14,6 +14,13 @@ import { definePolishdConfig } from "@polishd/next";
 const polishdConfig = definePolishdConfig({
   sessionCookie: "polish_session",
   apiRoute: "/api/polish",
+  // The dashboard lives at /polish here (pre-rename URL), not the package
+  // default /polishd. Without this, every layer treats /polish as a page of
+  // the site: the client captures dashboard clicks and design-scans the
+  // dashboard itself, and the dashboard's own queries rank it as a top page.
+  // Threaded into initPolishd, createPolishdRoute, AND createPolishdPage —
+  // the page registration is what the read-side queries rely on.
+  dashboardRoute: "/polish",
 });
 
 export default polishdConfig;
