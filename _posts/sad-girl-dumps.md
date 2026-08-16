@@ -8,4 +8,4 @@ folder: Recently Deleted
 
 **\- ik so many people, nobody knows me**
 
-\- "because i always knew i was going to be alone” he said while i held him crying. i didn’t say anything but i went back to the memory of screaming the exact some words sometime back, except in my case the room was empty.
+\- "because i always knew i was going to be alone” he said while i held him crying. i didn’t say anything but i went back to the memory of screaming the exact same words sometime back, except in my case the room was empty.
