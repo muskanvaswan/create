@@ -1,4 +1,5 @@
 import { Post } from "@/interfaces/post";
+import { TRASH_FOLDER } from "@/lib/folders";
 import fs from "fs";
 import matter from "gray-matter";
 import { join } from "path";
@@ -43,4 +44,12 @@ export function isHiddenPost(post: Post): boolean {
 
 export function getPublicPosts(): Post[] {
   return getAllPosts().filter((post) => !isHiddenPost(post));
+}
+
+/**
+ * Public posts minus the trash folder — what "All Notes" shows, and so what the
+ * landing page should fall back to. Trashed notes stay reachable by slug.
+ */
+export function getListedPosts(): Post[] {
+  return getPublicPosts().filter((post) => post.folder !== TRASH_FOLDER);
 }

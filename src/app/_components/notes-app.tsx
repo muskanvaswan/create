@@ -17,11 +17,13 @@ import {
   ShareIcon,
   SidebarIcon,
   TableIcon,
+  TrashIcon,
 } from "./icons";
 import { Pill } from "./pill";
 import { TrafficLights } from "./traffic-lights";
 import { ListenButton } from "./listen-button";
 import { PolishdMonitor } from "@polishd/next/client";
+import { TRASH_FOLDER } from "@/lib/folders";
 /** iOS-style glass surface used by the mobile buttons and search bar. */
 const mobileGlass =
   "border border-black/10 bg-gradient-to-br from-white/95 to-white/65 shadow-md backdrop-blur-xl dark:border-white/[0.12] dark:from-white/[0.18] dark:to-white/[0.06]";
@@ -60,6 +62,26 @@ function rowDate(date: Date, now: Date): string {
   if (days === 1) return "Yesterday";
   if (days <= 7) return format(date, "EEEE");
   return format(date, "dd/MM/yy");
+}
+
+/**
+ * Notes in the trash folder are only listed while that folder is selected —
+ * "All Notes" and searches made from it leave them out.
+ */
+function noteMatches(
+  note: NoteListItem,
+  folder: string | null,
+  query: string,
+): boolean {
+  if (folder ? note.folder !== folder : note.folder === TRASH_FOLDER) {
+    return false;
+  }
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return (
+    note.title.toLowerCase().includes(q) ||
+    note.excerpt.toLowerCase().includes(q)
+  );
 }
 
 /** Editing actions are read-only on the published site, so they render disabled. */
@@ -138,15 +160,9 @@ export function NotesApp({
     // On phones the list itself is a screen, so picking a folder should land
     // there instead of auto-opening the first note.
     if (typeof window !== "undefined" && window.innerWidth < 640) return;
-    const newVisible = notes.filter((note) => {
-      if (newFolder && note.folder !== newFolder) return false;
-      const q = query.trim().toLowerCase();
-      if (!q) return true;
-      return (
-        note.title.toLowerCase().includes(q) ||
-        note.excerpt.toLowerCase().includes(q)
-      );
-    });
+    const newVisible = notes.filter((note) =>
+      noteMatches(note, newFolder, query),
+    );
     if (newVisible.length > 0) {
       router.push(`${postsPrefix}${newVisible[0].slug}`);
     } else {
@@ -162,18 +178,18 @@ export function NotesApp({
     for (const note of notes) {
       counts.set(note.folder, (counts.get(note.folder) ?? 0) + 1);
     }
-    return [...counts.entries()];
+    // Trash always sits at the bottom of the list, like it does in Notes.
+    return [...counts.entries()].sort(
+      ([a], [b]) => Number(a === TRASH_FOLDER) - Number(b === TRASH_FOLDER),
+    );
   }, [notes]);
 
-  const visible = notes.filter((note) => {
-    if (folder && note.folder !== folder) return false;
-    const q = query.trim().toLowerCase();
-    if (!q) return true;
-    return (
-      note.title.toLowerCase().includes(q) ||
-      note.excerpt.toLowerCase().includes(q)
-    );
-  });
+  const allNotesCount = useMemo(
+    () => notes.filter((note) => note.folder !== TRASH_FOLDER).length,
+    [notes],
+  );
+
+  const visible = notes.filter((note) => noteMatches(note, folder, query));
 
   const grouped = new Map<string, NoteListItem[]>();
   for (const note of visible) {
@@ -218,7 +234,7 @@ export function NotesApp({
                 <li>
                   <FolderRow
                     label="All Notes"
-                    count={notes.length}
+                    count={allNotesCount}
                     active={folder === null}
                     onClick={() => changeFolder(null)}
                   />
@@ -229,6 +245,7 @@ export function NotesApp({
                       label={name}
                       count={count}
                       active={folder === name}
+                      trash={name === TRASH_FOLDER}
                       onClick={() => changeFolder(name)}
                     />
                   </li>
@@ -345,7 +362,7 @@ export function NotesApp({
               <li>
                 <MobileFolderRow
                   label="All Notes"
-                  count={notes.length}
+                  count={allNotesCount}
                   onClick={() => changeFolder(null)}
                 />
               </li>
@@ -355,6 +372,7 @@ export function NotesApp({
                   <MobileFolderRow
                     label={name}
                     count={count}
+                    trash={name === TRASH_FOLDER}
                     onClick={() => changeFolder(name)}
                   />
                 </li>
@@ -488,18 +506,21 @@ export function NotesApp({
 function MobileFolderRow({
   label,
   count,
+  trash = false,
   onClick,
 }: {
   label: string;
   count: number;
+  trash?: boolean;
   onClick: () => void;
 }) {
+  const Icon = trash ? TrashIcon : FolderIcon;
   return (
     <button
       onClick={onClick}
       className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-black/5 dark:active:bg-white/10"
     >
-      <FolderIcon className="h-[22px] w-[22px] shrink-0 text-[#e0a30c]" />
+      <Icon className="h-[22px] w-[22px] shrink-0 text-[#e0a30c]" />
       <span className="min-w-0 flex-1 truncate text-[17px]">{label}</span>
       <span className="text-[17px] tabular-nums text-neutral-400 dark:text-neutral-500">
         {count}
@@ -513,13 +534,16 @@ function FolderRow({
   label,
   count,
   active,
+  trash = false,
   onClick,
 }: {
   label: string;
   count: number;
   active: boolean;
+  trash?: boolean;
   onClick: () => void;
 }) {
+  const Icon = trash ? TrashIcon : FolderIcon;
   return (
     <button
       onClick={onClick}
@@ -530,7 +554,7 @@ function FolderRow({
           : "text-neutral-700 dark:text-neutral-200 hover:bg-black/5 dark:hover:bg-white/5",
       )}
     >
-      <FolderIcon
+      <Icon
         className={cn(
           "h-[18px] w-[18px] shrink-0",
           active ? "text-white" : "text-neutral-500 dark:text-neutral-400"
