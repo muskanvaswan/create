@@ -55,6 +55,18 @@ export function NewFolderIcon(props: IconProps) {
   );
 }
 
+export function TrashIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M4 6h16" />
+      <path d="M9 6V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V6" />
+      <path d="M6 6l.8 13.1A2 2 0 0 0 8.8 21h6.4a2 2 0 0 0 2-1.9L18 6" />
+      <path d="M10 10.5v6" />
+      <path d="M14 10.5v6" />
+    </Svg>
+  );
+}
+
 export function SidebarIcon(props: IconProps) {
   return (
     <Svg {...props}>
