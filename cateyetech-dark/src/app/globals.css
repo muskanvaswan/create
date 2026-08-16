@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans: system-ui, sans-serif;
+
+    /* Surfaces, darkest to lightest. */
+    --c-page: 8 12 20; /* page background */
+    --c-raised: 16 23 34; /* cards, header */
+    --c-sunken: 5 8 14; /* hero and closing bands */
+
+    /* Hairlines. */
+    --c-line: 30 41 57;
+    --c-line-strong: 44 58 78;
+
+    /* Type. */
+    --c-heading: 240 246 252;
+    --c-body: 176 191 210;
+    --c-muted: 137 155 178;
+    --c-faint: 121 139 163;
+
+    /* Accent. */
+    --c-brand: 45 212 244;
+    --c-brand-soft: 125 231 250;
+    --c-brand-deep: 12 145 180;
+    --c-brand-ink: 4 26 34;
+
+    color-scheme: dark;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-page text-body antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  ::selection {
+    @apply bg-brand/30 text-heading;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand ring-offset-2 ring-offset-page;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply text-heading;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Form controls inherit the dark surface rather than the UA's white. */
+  input,
+  textarea,
+  select {
+    color-scheme: dark;
+  }
+
+  select option {
+    @apply bg-raised text-body;
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-6xl px-5 sm:px-8;
+  }
+
+  .eyebrow {
+    @apply inline-flex items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-brand;
+  }
+
+  .heading-xl {
+    @apply text-4xl font-semibold leading-[1.08] tracking-[-0.02em] sm:text-5xl lg:text-[3.4rem];
+  }
+
+  .heading-lg {
+    @apply text-3xl font-semibold leading-tight tracking-[-0.02em] sm:text-4xl;
+  }
+
+  .heading-md {
+    @apply text-xl font-semibold leading-snug tracking-[-0.01em] sm:text-2xl;
+  }
+
+  .lede {
+    @apply text-lg leading-relaxed text-muted sm:text-[1.2rem];
+  }
+
+  .prose-page {
+    @apply space-y-6 text-[1.02rem] leading-[1.75] text-body;
+  }
+
+  .prose-page h2 {
+    @apply pt-4 text-2xl font-semibold tracking-[-0.01em];
+  }
+
+  .prose-page h3 {
+    @apply pt-2 text-lg font-semibold;
+  }
+
+  .prose-page ul {
+    @apply list-disc space-y-2 pl-5 marker:text-brand;
+  }
+
+  .prose-page a {
+    @apply font-medium text-brand underline underline-offset-4 hover:text-brand-soft;
+  }
+
+  /* Faint blueprint grid used behind the deepest sections. */
+  .grid-backdrop {
+    background-image:
+      linear-gradient(to right, rgb(var(--c-brand) / 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(var(--c-brand) / 0.05) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+
+  /* Hairline that fades out at both ends, used to separate dark bands. */
+  .rule-fade {
+    @apply h-px w-full border-0;
+    background: linear-gradient(
+      to right,
+      transparent,
+      rgb(var(--c-line-strong)),
+      transparent
+    );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
