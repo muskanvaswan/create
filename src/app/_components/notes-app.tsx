@@ -23,7 +23,7 @@ import { Pill } from "./pill";
 import { TrafficLights } from "./traffic-lights";
 import { ListenButton } from "./listen-button";
 import { PolishdMonitor } from "@polishd/next/client";
-import { TRASH_FOLDER } from "@/lib/folders";
+import { DEFAULT_FOLDER, TRASH_FOLDER } from "@/lib/folders";
 /** iOS-style glass surface used by the mobile buttons and search bar. */
 const mobileGlass =
   "border border-black/10 bg-gradient-to-br from-white/95 to-white/65 shadow-md backdrop-blur-xl dark:border-white/[0.12] dark:from-white/[0.18] dark:to-white/[0.06]";
@@ -150,7 +150,18 @@ export function NotesApp({
   const postsPrefix = `${basePath}/posts/`;
   const homePath = basePath || "/";
   const [query, setQuery] = useState("");
-  const [folder, setFolder] = useState<string | null>(null);
+  const [folder, setFolder] = useState<string | null>(() => {
+    // A shared link opens on its note's folder so the note shows in the list;
+    // otherwise start on the default folder, falling back to All Notes.
+    const openSlug = pathname.startsWith(postsPrefix)
+      ? decodeURIComponent(pathname.slice(postsPrefix.length))
+      : null;
+    const openNote = notes.find((note) => note.slug === openSlug);
+    if (openNote) return openNote.folder;
+    return notes.some((note) => note.folder === DEFAULT_FOLDER)
+      ? DEFAULT_FOLDER
+      : null;
+  });
   const [sidebarHidden, setSidebarHidden] = useState(false);
   const [mobileScreen, setMobileScreen] = useState<"folders" | "list">("list");
 

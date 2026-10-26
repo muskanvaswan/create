@@ -1,9 +1,9 @@
 import { Note } from "@/app/_components/note";
-import { getListedPosts } from "@/lib/api";
+import { getLandingPost } from "@/lib/api";
 import markdownToHtml from "@/lib/markdownToHtml";
 
 export default async function EmbedIndex() {
-  const latest = getListedPosts()[0];
+  const latest = getLandingPost();
 
   if (!latest) {
     return (

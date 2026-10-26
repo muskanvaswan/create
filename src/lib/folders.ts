@@ -5,3 +5,6 @@
  * must stay free of node-only imports.
  */
 export const TRASH_FOLDER = "Recently Deleted";
+
+/** Folder the site opens on, and where notes without a folder live. */
+export const DEFAULT_FOLDER = "Notes";

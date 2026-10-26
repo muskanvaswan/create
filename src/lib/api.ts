@@ -1,5 +1,5 @@
 import { Post } from "@/interfaces/post";
-import { TRASH_FOLDER } from "@/lib/folders";
+import { DEFAULT_FOLDER, TRASH_FOLDER } from "@/lib/folders";
 import fs from "fs";
 import matter from "gray-matter";
 import { join } from "path";
@@ -47,9 +47,21 @@ export function getPublicPosts(): Post[] {
 }
 
 /**
- * Public posts minus the trash folder — what "All Notes" shows, and so what the
- * landing page should fall back to. Trashed notes stay reachable by slug.
+ * Public posts minus the trash folder — what "All Notes" shows. Trashed notes
+ * stay reachable by slug.
  */
 export function getListedPosts(): Post[] {
   return getPublicPosts().filter((post) => post.folder !== TRASH_FOLDER);
+}
+
+/**
+ * The note the landing page opens: the newest one in the default folder, which
+ * is what the list starts on, or the newest listed note if that folder is empty.
+ */
+export function getLandingPost(): Post | undefined {
+  const listed = getListedPosts();
+  return (
+    listed.find((post) => (post.folder ?? DEFAULT_FOLDER) === DEFAULT_FOLDER) ??
+    listed[0]
+  );
 }
