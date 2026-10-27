@@ -8,5 +8,6 @@ export default async function markdownToHtml(markdown: string) {
     .use(gfm)
     .use(html, { sanitize: false })
     .process(markdown);
-  return result.toString();
+  // Notes can hold many full-size photos; only fetch them as they scroll in.
+  return result.toString().replace(/<img /g, '<img loading="lazy" ');
 }

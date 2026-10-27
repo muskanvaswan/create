@@ -1,6 +1,7 @@
 "use client";
 
 import cn from "classnames";
+import { HighlighterIcon } from "@/app/_components/icons";
 
 export type FormatState = {
   block: string;
@@ -8,6 +9,7 @@ export type FormatState = {
   italic: boolean;
   underline: boolean;
   strike: boolean;
+  highlight: boolean;
   ul: boolean;
   ol: boolean;
 };
@@ -15,6 +17,7 @@ export type FormatState = {
 type Props = {
   state: FormatState;
   onInline: (command: string) => void;
+  onHighlight: () => void;
   onBlock: (tag: string) => void;
   onList: (command: string) => void;
   onClose: () => void;
@@ -53,7 +56,14 @@ function InlineButton({
   );
 }
 
-export function FormatMenu({ state, onInline, onBlock, onList, onClose }: Props) {
+export function FormatMenu({
+  state,
+  onInline,
+  onHighlight,
+  onBlock,
+  onList,
+  onClose,
+}: Props) {
   const isList = state.ul || state.ol;
 
   const blockItems: {
@@ -145,6 +155,13 @@ export function FormatMenu({ state, onInline, onBlock, onList, onClose }: Props)
             onClick={() => onInline("strikeThrough")}
           >
             <span className="line-through">S</span>
+          </InlineButton>
+          <InlineButton
+            label="Highlight"
+            active={state.highlight}
+            onClick={onHighlight}
+          >
+            <HighlighterIcon className="h-[17px] w-[17px]" />
           </InlineButton>
         </span>
         <span className="block border-t border-black/10 dark:border-white/10" />

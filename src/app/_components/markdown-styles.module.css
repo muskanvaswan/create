@@ -39,6 +39,11 @@
   background-color: transparent !important;
 }
 
+/* Highlights are <mark> elements instead (see admin/highlight.ts) */
+.markdown mark {
+  @apply rounded-[3px] bg-[#fed87a] px-[1px] text-inherit box-decoration-clone dark:bg-[#e0a30c]/40;
+}
+
 .markdown code {
   @apply rounded bg-black/5 px-1 py-0.5 font-mono text-[13px] dark:bg-white/10;
 }
@@ -55,8 +60,9 @@
   @apply my-8 border-black/10 dark:border-white/10;
 }
 
+/* Centered and capped so a portrait phone photo still fits on screen */
 .markdown img {
-  @apply my-4 rounded-lg;
+  @apply mx-auto my-4 max-h-[75vh] w-auto rounded-lg;
 }
 
 .markdown table {

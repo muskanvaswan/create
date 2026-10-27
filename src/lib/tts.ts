@@ -35,7 +35,8 @@ export async function deleteAudio(slug: string): Promise<void> {
 }
 
 async function markdownToPlainText(markdown: string): Promise<string> {
-  const result = await remark().use(strip).process(markdown);
+  // Images carry their upload's file name as alt text; not worth reading out.
+  const result = await remark().use(strip, { remove: ["image"] }).process(markdown);
   return String(result).replace(/\s+/g, " ").trim();
 }
 
