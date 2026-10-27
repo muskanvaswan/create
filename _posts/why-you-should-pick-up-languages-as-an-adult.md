@@ -19,8 +19,8 @@ However, I noticed something stranger happen: the more Hindi music I listened to
 
 This ties back into something called the Sapir-Whorf hypothesis, the idea that the structure of a language can shape the way you think. This idea is profoundly depicted in a sci-fi movie called \*Arrival\*, in which (spoiler alert) learning a language of loops from an alien world gives the protagonist the ability to view time non-linearly and see the future, past and present at a single point. It made me wonder how many lenses to life I was missing just by not knowing a language.
 
-> **The Sapir-Whorf hypothesis  
-> **  
+> \*\*The Sapir-Whorf hypothesis  
+> \*\*  
 > Named after the linguists Edward Sapir and Benjamin Lee Whorf. Its strong form, that language fixes what you are able to think, is largely set aside today. Its weaker form, that language nudges what you notice and remember, such as how finely you sort colours or how you picture time, still has experimental support.
 
 !\[Three loose ink rings with small tendrils and dots, two in black and one in red.\](/blog/circular-logograms.svg)
@@ -39,13 +39,9 @@ Let’s now backtrack a bit to Bangalore. I have been speaking like English is t
 
 ### Two itches
 
-Then why even try to learn it? Am I going to preach about not losing vernacular culture, or forcing a language on migrant people just to preserve it? Absolutely not. While English as a functional language makes sense and will likely always stay my primary one, I want to draw attention to the fact that <u>languages are used for more than functional communication.&nbsp;</u> This was a growing realisation that gradually crept up on me as urges, after I realised what languages could influence, but I can split it into two marking points.
+Then why even try to learn it? Am I going to preach about not losing vernacular culture, or forcing a language on migrant people just to preserve it? Absolutely not. While English as a functional language makes sense and will likely always stay my primary one, I want to draw attention to the fact that <u>languages are used for more than functional communication.&nbsp;</u>  This was a growing realisation that gradually crept up on me as urges, after I realised what languages could influence, but I can split it into two marking points.
 
 The first was a song my school best friend sang. It was in Kannada and she was so emotional while singing it. I could not relate, until I sang a Haryanvi song and saw her unmoved expression. It made me realise that I would never be able to explain the emotion of the song. I am a curious and emotional person, so it made me yearn to understand her language so I could understand her better. This was the first itch.
-
-!\[A crowded street in Myeongdong at night, lined with tall neon signs in Korean.\](/blog/seoul-myeongdong-night.jpg)
-
-*Myeongdong, Seoul, at night.*
 
 The second itch came to me in a different nation altogether — South Korea. In this country, like many others, English was not considered the common language of educated people. This is always slightly jarring, since as an Indian you are told that English is the means to your globalization. Most people I met there were kind to a fault, engaging me in conversations and comparisons of culture. I had to pick up at least the word for thank you, so that I could express my respect for their culture as they spoke to me through a layer of Google Translate. They always insisted on saying \*dhanyavaad\* back, even when I explained that most people just say thank you these days. Long conversations with people from different parts of the world made me want to learn more languages, so I could absorb more of the world in the short life that I have, starting from the one I had tried to learn many times already.
 
