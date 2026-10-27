@@ -22,6 +22,8 @@ import { TrafficLights } from "@/app/_components/traffic-lights";
 import htmlToMarkdown from "@/lib/htmlToMarkdown";
 import markdownToHtml from "@/lib/markdownToHtml";
 import { FormatMenu, FormatState } from "./format-menu";
+import { isHighlighted, toggleHighlight } from "./highlight";
+import { isImage, prepareImage } from "./prepare-image";
 
 type AdminNote = {
   slug: string;
@@ -72,7 +74,12 @@ function rowDate(date: Date, now: Date): string {
 function previewLine(markdown: string): string {
   const line = markdown
     .split("\n")
-    .map((l) => l.replace(/^[#>\s]+|^[-*]\s(\[[ x]\]\s)?|^\d+\.\s/g, "").trim())
+    .map((l) =>
+      l
+        .replace(/<\/?[a-z][^>]*>/gi, "")
+        .replace(/^[#>\s]+|^[-*]\s(\[[ x]\]\s)?|^\d+\.\s/g, "")
+        .trim(),
+    )
     .find((l) => l.length > 0);
   return line ?? "No additional text";
 }
@@ -92,9 +99,22 @@ function readFormatState(): FormatState {
     italic: document.queryCommandState("italic"),
     underline: document.queryCommandState("underline"),
     strike: document.queryCommandState("strikeThrough"),
+    highlight: isHighlighted(),
     ul: document.queryCommandState("insertUnorderedList"),
     ol: document.queryCommandState("insertOrderedList"),
   };
+}
+
+/** Collapsed range at a viewport point, e.g. where files were dropped. */
+function caretRangeAt(x: number, y: number): Range | null {
+  if (document.caretPositionFromPoint) {
+    const position = document.caretPositionFromPoint(x, y);
+    if (!position) return null;
+    const range = document.createRange();
+    range.setStart(position.offsetNode, position.offset);
+    return range;
+  }
+  return document.caretRangeFromPoint(x, y);
 }
 
 function ToolbarButton({
@@ -134,6 +154,7 @@ export function Editor({ initialNotes, initialFolders }: Props) {
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(0);
   const [query, setQuery] = useState("");
   const [folder, setFolder] = useState<string | null>(null);
   const [sidebarHidden, setSidebarHidden] = useState(false);
@@ -306,6 +327,11 @@ export function Editor({ initialNotes, initialFolders }: Props) {
     setFormatState(readFormatState());
   };
 
+  const highlight = () => {
+    if (editorRef.current && toggleHighlight(editorRef.current)) setDirty(true);
+    setFormatState(readFormatState());
+  };
+
   const rememberSelection = () => {
     const sel = window.getSelection();
     if (sel && sel.rangeCount > 0) {
@@ -322,23 +348,36 @@ export function Editor({ initialNotes, initialFolders }: Props) {
   };
 
   const attach = async (file: File) => {
-    const form = new FormData();
-    form.append("file", file);
-    const res = await fetch("/api/admin/upload", { method: "POST", body: form });
-    if (!res.ok) {
-      setError("Upload failed");
-      return;
+    setUploading((n) => n + 1);
+    setError(null);
+    try {
+      const upload = isImage(file) ? await prepareImage(file) : file;
+      const form = new FormData();
+      form.append("file", upload);
+      const res = await fetch("/api/admin/upload", { method: "POST", body: form });
+      if (!res.ok) throw new Error("Upload failed");
+      const { path, isImage: uploadedImage } = await res.json();
+      const name = escapeHtml(upload.name);
+      editorRef.current?.focus();
+      restoreSelection();
+      exec(
+        "insertHTML",
+        uploadedImage
+          ? `<img src="${path}" alt="${name}">`
+          : `<a href="${path}">${name}</a>`,
+      );
+      // The next file of a paste or drop goes after this one.
+      rememberSelection();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading((n) => n - 1);
     }
-    const { path, isImage } = await res.json();
-    const name = escapeHtml(file.name);
-    editorRef.current?.focus();
-    restoreSelection();
-    exec(
-      "insertHTML",
-      isImage
-        ? `<img src="${path}" alt="${name}">`
-        : `<a href="${path}">${name}</a>`,
-    );
+  };
+
+  /** Upload one at a time so the files land in the note in order. */
+  const attachAll = async (files: File[]) => {
+    for (const file of files) await attach(file);
   };
 
   const save = async () => {
@@ -651,6 +690,7 @@ export function Editor({ initialNotes, initialFolders }: Props) {
                   <FormatMenu
                     state={formatState}
                     onInline={(command) => exec(command)}
+                    onHighlight={highlight}
                     onBlock={(tag) => exec("formatBlock", tag)}
                     onList={(command) => exec(command)}
                     onClose={() => setFormatOpen(false)}
@@ -806,6 +846,7 @@ export function Editor({ initialNotes, initialFolders }: Props) {
                       </option>
                     ))}
                   </select>
+                  {uploading > 0 && <span>Uploading…</span>}
                   {savedFlash && (
                     <span className="text-green-600 dark:text-green-400">
                       Saved
@@ -836,6 +877,36 @@ export function Editor({ initialNotes, initialFolders }: Props) {
                     suppressContentEditableWarning
                     data-placeholder="Start writing..."
                     onInput={() => setDirty(true)}
+                    onPaste={(e) => {
+                      // Take over only when the clipboard is just pictures (a
+                      // screenshot, a copied photo); text pastes stay native.
+                      const images = [...e.clipboardData.files].filter(isImage);
+                      if (
+                        images.length === 0 ||
+                        e.clipboardData.getData("text/plain").trim()
+                      ) {
+                        return;
+                      }
+                      e.preventDefault();
+                      rememberSelection();
+                      attachAll(images);
+                    }}
+                    onDragOver={(e) => {
+                      // Accept dropped files instead of letting the browser open them.
+                      if (e.dataTransfer.types.includes("Files")) e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                      const files = [...e.dataTransfer.files];
+                      if (files.length === 0) return;
+                      e.preventDefault();
+                      const caret = caretRangeAt(e.clientX, e.clientY);
+                      if (caret) {
+                        window.getSelection()?.removeAllRanges();
+                        window.getSelection()?.addRange(caret);
+                      }
+                      rememberSelection();
+                      attachAll(files);
+                    }}
                     onKeyDown={(e) => {
                       const mod = e.metaKey || e.ctrlKey;
                       if (!mod) return;
@@ -843,6 +914,7 @@ export function Editor({ initialNotes, initialFolders }: Props) {
                       else if (e.key === "i") { e.preventDefault(); exec("italic"); }
                       else if (e.key === "u") { e.preventDefault(); exec("underline"); }
                       else if (e.key === "X" || (e.key === "x" && e.shiftKey)) { e.preventDefault(); exec("strikeThrough"); }
+                      else if (e.key === "E" || (e.key === "e" && e.shiftKey)) { e.preventDefault(); highlight(); }
                       else if (e.key === "s") { e.preventDefault(); save(); }
                     }}
                     className={cn(

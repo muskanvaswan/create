@@ -16,6 +16,7 @@ function getPlainText(markdown: string): string {
   return markdown
     .replace(/!\[[^\]]*\]\([^)]*\)/g, "") // images
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // links -> link text
+    .replace(/<\/?[a-z][^>]*>/gi, "") // inline html (highlights, underline)
     .replace(/[*_~`#>]/g, "") // emphasis / heading markers
     .replace(/\s+/g, " ")
     .trim();

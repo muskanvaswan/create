@@ -43,7 +43,12 @@ function makeExcerpt(content: string): string {
   const firstLine =
     content
       .split("\n")
-      .map((line) => line.replace(/^[#>\-*\s]+/, "").trim())
+      .map((line) =>
+        line
+          .replace(/<\/?[a-z][^>]*>/gi, "")
+          .replace(/^[#>\-*\s]+/, "")
+          .trim(),
+      )
       .find((line) => line.length > 0) ?? "";
   return firstLine.length > 160 ? `${firstLine.slice(0, 157)}...` : firstLine;
 }
